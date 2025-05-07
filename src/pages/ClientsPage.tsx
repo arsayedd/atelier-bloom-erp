@@ -1,385 +1,385 @@
 
-import React, { useState } from 'react';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Search, Plus, Pencil, Trash2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-
-// Mock data for clients
-const mockClients = [
-  { 
-    id: 'C1001', 
-    name: 'سارة أحمد', 
-    phone: '01012345678', 
-    emergencyPhone: '01112345678', 
-    governorate: 'الدقهلية', 
-    city: 'المنصورة',
-    source: 'فيسبوك',
-    notes: 'عروس شهر يوليو',
-  },
-  { 
-    id: 'C1002', 
-    name: 'نور محمد', 
-    phone: '01112345678', 
-    emergencyPhone: '01212345678', 
-    governorate: 'الغربية', 
-    city: 'طنطا',
-    source: 'إنستجرام',
-    notes: 'تحتاج خدمة ميكب وفستان',
-  },
-  { 
-    id: 'C1003', 
-    name: 'فاطمة علي', 
-    phone: '01212345678', 
-    emergencyPhone: '01112345678', 
-    governorate: 'القليوبية', 
-    city: 'بنها',
-    source: 'ترشيح من صديقة',
-    notes: 'عروس حجاب كامل',
-  },
-];
-
-// Egyptian governorates data
-const governorates = [
-  { id: 1, name: 'الدقهلية', cities: ['المنصورة', 'طلخا', 'ميت غمر', 'السنبلاوين'] },
-  { id: 2, name: 'الغربية', cities: ['طنطا', 'المحلة الكبرى', 'زفتى', 'السنطة'] },
-  { id: 3, name: 'القليوبية', cities: ['بنها', 'شبين القناطر', 'طوخ', 'قليوب'] },
-  { id: 4, name: 'الشرقية', cities: ['الزقازيق', 'منيا القمح', 'بلبيس', 'أبو حماد'] },
-];
-
-const sourcesOptions = [
-  'فيسبوك',
-  'إنستجرام',
-  'ترشيح من صديقة',
-  'يوتيوب',
-  'تيك توك',
-  'جوجل',
-  'أخرى'
-];
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { ClientService, Client } from '@/services/ClientService';
+import { X, Pencil, Trash2, Plus } from 'lucide-react';
 
 const ClientsPage = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [clients, setClients] = useState(mockClients);
-  const [isAddClientOpen, setIsAddClientOpen] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<any>(null);
-  const [selectedGovernorate, setSelectedGovernorate] = useState<string>('');
-  const [availableCities, setAvailableCities] = useState<string[]>([]);
-  
-  // Form state for new client
-  const [newClient, setNewClient] = useState({
-    id: '',
-    name: '',
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [currentClient, setCurrentClient] = useState<Client | null>(null);
+  const [newClient, setNewClient] = useState<Omit<Client, 'id' | 'created_at' | 'updated_at'>>({
+    full_name: '',
     phone: '',
-    emergencyPhone: '',
-    governorate: '',
-    city: '',
-    source: '',
-    notes: ''
+    email: '',
+    address: '',
+    notes: '',
   });
-  
-  // Filter clients based on search term
-  const filteredClients = clients.filter(client => 
-    client.name.includes(searchTerm) ||
-    client.phone.includes(searchTerm) ||
-    client.id.includes(searchTerm)
-  );
-  
-  // Handle governorate change
-  const handleGovernorateChange = (value: string) => {
-    setSelectedGovernorate(value);
-    setNewClient({...newClient, governorate: value, city: ''});
-    
-    // Update available cities based on selected governorate
-    const governorate = governorates.find(g => g.name === value);
-    if (governorate) {
-      setAvailableCities(governorate.cities);
-    } else {
-      setAvailableCities([]);
+
+  const queryClient = useQueryClient();
+
+  // Get clients
+  const { data: clients, isLoading } = useQuery({
+    queryKey: ['clients'],
+    queryFn: () => ClientService.getClients(),
+  });
+
+  // Create client
+  const createMutation = useMutation({
+    mutationFn: (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => 
+      ClientService.createClient(client),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      setIsAddModalOpen(false);
+      resetNewClient();
+    },
+  });
+
+  // Update client
+  const updateMutation = useMutation({
+    mutationFn: ({ id, client }: { id: string; client: Partial<Client> }) => 
+      ClientService.updateClient(id, client),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      setIsEditModalOpen(false);
+      setCurrentClient(null);
+    },
+  });
+
+  // Delete client
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => ClientService.deleteClient(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+    },
+  });
+
+  const handleCreateClient = () => {
+    createMutation.mutate(newClient);
+  };
+
+  const handleUpdateClient = () => {
+    if (currentClient) {
+      updateMutation.mutate({
+        id: currentClient.id,
+        client: {
+          full_name: currentClient.full_name,
+          phone: currentClient.phone,
+          email: currentClient.email,
+          address: currentClient.address,
+          notes: currentClient.notes,
+        },
+      });
     }
   };
-  
-  // Handle city change
-  const handleCityChange = (value: string) => {
-    setNewClient({...newClient, city: value});
-  };
-  
-  // Handle add new client
-  const handleAddClient = () => {
-    // Generate a new client ID
-    const newId = `C${1000 + clients.length + 1}`;
-    const clientToAdd = {...newClient, id: newId};
-    
-    setClients([...clients, clientToAdd]);
-    setIsAddClientOpen(false);
-    setNewClient({
-      id: '',
-      name: '',
-      phone: '',
-      emergencyPhone: '',
-      governorate: '',
-      city: '',
-      source: '',
-      notes: ''
-    });
-    setSelectedGovernorate('');
-    setAvailableCities([]);
-  };
-  
-  // Handle edit client
-  const handleEditClient = (client: any) => {
-    setSelectedClient(client);
-    setNewClient(client);
-    setSelectedGovernorate(client.governorate);
-    
-    // Update available cities based on selected governorate
-    const governorate = governorates.find(g => g.name === client.governorate);
-    if (governorate) {
-      setAvailableCities(governorate.cities);
-    }
-    
-    setIsAddClientOpen(true);
-  };
-  
-  // Handle delete client
+
   const handleDeleteClient = (id: string) => {
-    setClients(clients.filter(client => client.id !== id));
+    deleteMutation.mutate(id);
+  };
+
+  const resetNewClient = () => {
+    setNewClient({
+      full_name: '',
+      phone: '',
+      email: '',
+      address: '',
+      notes: '',
+    });
+  };
+
+  const handleEditClick = (client: Client) => {
+    setCurrentClient(client);
+    setIsEditModalOpen(true);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setNewClient((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setCurrentClient((prev) => 
+      prev ? { ...prev, [name]: value } : null
+    );
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-semibold">إدارة العملاء</h1>
-        <Dialog open={isAddClientOpen} onOpenChange={setIsAddClientOpen}>
+    <div className="container mx-auto p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">العملاء</h1>
+        <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-bloom-primary hover:bg-bloom-primary/90">
+            <Button className="bg-bloom-primary hover:bg-bloom-primary/80">
               <Plus className="mr-2 h-4 w-4" /> إضافة عميل جديد
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent>
             <DialogHeader>
-              <DialogTitle>{selectedClient ? 'تعديل بيانات عميل' : 'إضافة عميل جديد'}</DialogTitle>
+              <DialogTitle>إضافة عميل جديد</DialogTitle>
               <DialogDescription>
-                أدخل بيانات العميل بالكامل ثم اضغط على حفظ
+                أدخل بيانات العميل الجديد
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">الاسم</Label>
-                  <Input 
-                    id="name" 
-                    value={newClient.name} 
-                    onChange={(e) => setNewClient({...newClient, name: e.target.value})} 
-                    placeholder="الاسم بالكامل"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">رقم الهاتف</Label>
-                  <Input 
-                    id="phone" 
-                    value={newClient.phone} 
-                    onChange={(e) => setNewClient({...newClient, phone: e.target.value})} 
-                    placeholder="01xxxxxxxxx"
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="emergencyPhone">رقم هاتف للطوارئ</Label>
-                <Input 
-                  id="emergencyPhone" 
-                  value={newClient.emergencyPhone} 
-                  onChange={(e) => setNewClient({...newClient, emergencyPhone: e.target.value})} 
-                  placeholder="رقم بديل للتواصل"
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="full_name" className="text-right">
+                  الاسم الكامل
+                </Label>
+                <Input
+                  id="full_name"
+                  name="full_name"
+                  value={newClient.full_name}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  required
                 />
               </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="governorate">المحافظة</Label>
-                  <Select 
-                    value={selectedGovernorate} 
-                    onValueChange={handleGovernorateChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر المحافظة" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {governorates.map((governorate) => (
-                        <SelectItem key={governorate.id} value={governorate.name}>
-                          {governorate.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="city">المدينة</Label>
-                  <Select 
-                    value={newClient.city} 
-                    onValueChange={handleCityChange}
-                    disabled={!selectedGovernorate}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر المدينة" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableCities.map((city) => (
-                        <SelectItem key={city} value={city}>
-                          {city}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="phone" className="text-right">
+                  رقم الهاتف
+                </Label>
+                <Input
+                  id="phone"
+                  name="phone"
+                  value={newClient.phone}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  required
+                />
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="source">كيف عرفتنا؟</Label>
-                <Select 
-                  value={newClient.source} 
-                  onValueChange={(value) => setNewClient({...newClient, source: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر المصدر" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sourcesOptions.map((source) => (
-                      <SelectItem key={source} value={source}>
-                        {source}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="email" className="text-right">
+                  البريد الإلكتروني
+                </Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={newClient.email || ''}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                />
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="notes">ملاحظات</Label>
-                <Input 
-                  id="notes" 
-                  value={newClient.notes} 
-                  onChange={(e) => setNewClient({...newClient, notes: e.target.value})} 
-                  placeholder="أي ملاحظات إضافية"
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="address" className="text-right">
+                  العنوان
+                </Label>
+                <Input
+                  id="address"
+                  name="address"
+                  value={newClient.address || ''}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="notes" className="text-right">
+                  ملاحظات
+                </Label>
+                <Input
+                  id="notes"
+                  name="notes"
+                  value={newClient.notes || ''}
+                  onChange={handleInputChange}
+                  className="col-span-3"
                 />
               </div>
             </div>
-            <div className="flex justify-end space-x-4">
-              <Button variant="outline" onClick={() => setIsAddClientOpen(false)}>إلغاء</Button>
-              <Button 
-                className="bg-bloom-primary hover:bg-bloom-primary/90" 
-                onClick={handleAddClient}
-              >
-                {selectedClient ? 'تحديث' : 'إضافة'}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>
+                إلغاء
               </Button>
-            </div>
+              <Button className="bg-bloom-primary hover:bg-bloom-primary/80" onClick={handleCreateClient}>
+                إضافة
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>قائمة العملاء</CardTitle>
-          <CardDescription>
-            عرض وإدارة جميع العملاء المسجلين
-          </CardDescription>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input 
-              placeholder="بحث عن عميل..." 
-              className="pl-10 pr-4" 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>كود</TableHead>
-                <TableHead>الاسم</TableHead>
-                <TableHead>رقم الهاتف</TableHead>
-                <TableHead>المحافظة</TableHead>
-                <TableHead>المدينة</TableHead>
-                <TableHead>المصدر</TableHead>
-                <TableHead>إجراءات</TableHead>
+
+      {isLoading ? (
+        <div className="text-center p-10">جاري التحميل...</div>
+      ) : clients?.length === 0 ? (
+        <div className="text-center p-10">لا يوجد عملاء</div>
+      ) : (
+        <Table>
+          <TableCaption>قائمة بجميع العملاء المسجلين</TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead>الاسم</TableHead>
+              <TableHead>رقم الهاتف</TableHead>
+              <TableHead>البريد الإلكتروني</TableHead>
+              <TableHead>العنوان</TableHead>
+              <TableHead>ملاحظات</TableHead>
+              <TableHead className="text-right">الإجراءات</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {clients?.map((client) => (
+              <TableRow key={client.id}>
+                <TableCell className="font-medium">{client.full_name}</TableCell>
+                <TableCell>{client.phone}</TableCell>
+                <TableCell>{client.email || '-'}</TableCell>
+                <TableCell>{client.address || '-'}</TableCell>
+                <TableCell>{client.notes || '-'}</TableCell>
+                <TableCell className="text-right flex justify-end space-x-2 rtl:space-x-reverse">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditClick(client)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          سيتم حذف بيانات العميل نهائياً. هذا الإجراء لا يمكن التراجع عنه.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          onClick={() => handleDeleteClient(client.id)}
+                        >
+                          حذف
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredClients.map((client) => (
-                <TableRow key={client.id}>
-                  <TableCell>{client.id}</TableCell>
-                  <TableCell>{client.name}</TableCell>
-                  <TableCell>{client.phone}</TableCell>
-                  <TableCell>{client.governorate}</TableCell>
-                  <TableCell>{client.city}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="bg-gray-100">
-                      {client.source}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => handleEditClient(client)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => handleDeleteClient(client.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filteredClients.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-6">
-                    لا يوجد عملاء مطابقين لبحثك
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+
+      {/* Edit Client Dialog */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>تعديل بيانات العميل</DialogTitle>
+            <DialogDescription>
+              قم بتحديث بيانات العميل
+            </DialogDescription>
+          </DialogHeader>
+          {currentClient && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit_full_name" className="text-right">
+                  الاسم الكامل
+                </Label>
+                <Input
+                  id="edit_full_name"
+                  name="full_name"
+                  value={currentClient.full_name}
+                  onChange={handleEditChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit_phone" className="text-right">
+                  رقم الهاتف
+                </Label>
+                <Input
+                  id="edit_phone"
+                  name="phone"
+                  value={currentClient.phone}
+                  onChange={handleEditChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit_email" className="text-right">
+                  البريد الإلكتروني
+                </Label>
+                <Input
+                  id="edit_email"
+                  name="email"
+                  type="email"
+                  value={currentClient.email || ''}
+                  onChange={handleEditChange}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit_address" className="text-right">
+                  العنوان
+                </Label>
+                <Input
+                  id="edit_address"
+                  name="address"
+                  value={currentClient.address || ''}
+                  onChange={handleEditChange}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit_notes" className="text-right">
+                  ملاحظات
+                </Label>
+                <Input
+                  id="edit_notes"
+                  name="notes"
+                  value={currentClient.notes || ''}
+                  onChange={handleEditChange}
+                  className="col-span-3"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+              إلغاء
+            </Button>
+            <Button className="bg-bloom-primary hover:bg-bloom-primary/80" onClick={handleUpdateClient}>
+              حفظ التغييرات
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

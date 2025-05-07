@@ -4,77 +4,80 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Calendar } from '@/components/ui/calendar';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Badge } from '@/components/ui/badge';
-
-// Mock data for dashboard
-const salesData = [
-  { name: 'Jan', total: 1200 },
-  { name: 'Feb', total: 900 },
-  { name: 'Mar', total: 1500 },
-  { name: 'Apr', total: 1800 },
-  { name: 'May', total: 1600 },
-  { name: 'Jun', total: 2100 },
-  { name: 'Jul', total: 1700 },
-];
-
-const todaysAppointments = [
-  { id: 1, client: 'Sara Ahmed', time: '10:00 AM', service: 'Bridal Makeup', status: 'confirmed' },
-  { id: 2, client: 'Nour Mohamed', time: '12:30 PM', service: 'Evening Gown Fitting', status: 'confirmed' },
-  { id: 3, client: 'Fatima Ali', time: '3:00 PM', service: 'Skin Treatment', status: 'pending' },
-];
-
-const pendingPayments = [
-  { id: 1, client: 'Layla Hassan', amount: 2500, service: 'Wedding Dress Rental', dueDate: '2023-05-20' },
-  { id: 2, client: 'Mona Karim', amount: 1800, service: 'Bridal Package', dueDate: '2023-05-18' },
-];
+import { useQuery } from '@tanstack/react-query';
+import { DashboardService } from '@/services/DashboardService';
 
 const Dashboard = () => {
   const [date, setDate] = React.useState<Date | undefined>(new Date());
   
+  // Fetch dashboard data
+  const { data: revenueData, isLoading: isLoadingRevenue } = useQuery({
+    queryKey: ['dashboard', 'revenue'],
+    queryFn: () => DashboardService.getMonthlyRevenue()
+  });
+  
+  const { data: appointments, isLoading: isLoadingAppointments } = useQuery({
+    queryKey: ['dashboard', 'appointments'],
+    queryFn: () => DashboardService.getTodayAppointments()
+  });
+  
+  const { data: pendingPayments, isLoading: isLoadingPayments } = useQuery({
+    queryKey: ['dashboard', 'payments'],
+    queryFn: () => DashboardService.getPendingPayments()
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-semibold">Dashboard</h1>
+        <h1 className="text-3xl font-semibold">لوحة المعلومات</h1>
         <Badge variant="outline" className="bg-bloom-primary text-white text-sm px-3 py-1">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          {new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </Badge>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="bloom-card md:col-span-2">
           <CardHeader>
-            <CardTitle className="bloom-heading">Revenue Overview</CardTitle>
-            <CardDescription>Monthly revenue for the current year</CardDescription>
+            <CardTitle className="bloom-heading">نظرة عامة على الإيرادات</CardTitle>
+            <CardDescription>الإيرادات الشهرية للسنة الحالية</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={salesData}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      borderRadius: '8px', 
-                      border: '1px solid #e2b8ff' 
-                    }} 
-                  />
-                  <Bar 
-                    dataKey="total" 
-                    fill="#9b55d3" 
-                    radius={[4, 4, 0, 0]}
-                    name="Revenue (EGP)" 
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              {isLoadingRevenue ? (
+                <div className="flex items-center justify-center h-full">
+                  <p>جاري تحميل البيانات...</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={revenueData}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'white', 
+                        borderRadius: '8px', 
+                        border: '1px solid #e2b8ff' 
+                      }}
+                      formatter={(value) => [`${value} جنيه`, 'الإيرادات']}
+                    />
+                    <Bar 
+                      dataKey="total" 
+                      fill="#9b55d3" 
+                      radius={[4, 4, 0, 0]}
+                      name="الإيرادات (جنيه)" 
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
         
         <Card className="bloom-card">
           <CardHeader>
-            <CardTitle className="bloom-heading">Calendar</CardTitle>
-            <CardDescription>Browse and manage appointments</CardDescription>
+            <CardTitle className="bloom-heading">التقويم</CardTitle>
+            <CardDescription>استعراض وإدارة المواعيد</CardDescription>
           </CardHeader>
           <CardContent>
             <Calendar
@@ -90,74 +93,86 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="bloom-card">
           <CardHeader>
-            <CardTitle className="bloom-heading">Today's Appointments</CardTitle>
+            <CardTitle className="bloom-heading">مواعيد اليوم</CardTitle>
             <CardDescription>
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+              {new Date().toLocaleDateString('ar-EG', { weekday: 'long', month: 'long', day: 'numeric' })}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {todaysAppointments.map((appointment) => (
-                <div 
-                  key={appointment.id} 
-                  className="flex items-center justify-between p-3 rounded-md bg-white border border-muted"
-                >
-                  <div>
-                    <p className="font-medium">{appointment.client}</p>
-                    <p className="text-sm text-muted-foreground">{appointment.service}</p>
+            {isLoadingAppointments ? (
+              <div className="flex items-center justify-center h-32">
+                <p>جاري تحميل البيانات...</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {appointments && appointments.length > 0 ? appointments.map((appointment) => (
+                  <div 
+                    key={appointment.id} 
+                    className="flex items-center justify-between p-3 rounded-md bg-white border border-muted"
+                  >
+                    <div>
+                      <p className="font-medium">{appointment.client?.full_name || 'عميل غير معروف'}</p>
+                      <p className="text-sm text-muted-foreground">{appointment.notes || 'موعد'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">{new Date(appointment.date).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</p>
+                      <Badge 
+                        variant="outline" 
+                        className={`${
+                          appointment.status === 'confirmed' || appointment.status === 'scheduled'
+                            ? 'bg-green-100 text-green-800 border-green-200' 
+                            : 'bg-amber-100 text-amber-800 border-amber-200'
+                        }`}
+                      >
+                        {appointment.status === 'confirmed' ? 'مؤكد' : 
+                         appointment.status === 'scheduled' ? 'مجدول' : 
+                         appointment.status === 'pending' ? 'معلق' : appointment.status}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-medium">{appointment.time}</p>
-                    <Badge 
-                      variant="outline" 
-                      className={`${
-                        appointment.status === 'confirmed' 
-                          ? 'bg-green-100 text-green-800 border-green-200' 
-                          : 'bg-amber-100 text-amber-800 border-amber-200'
-                      }`}
-                    >
-                      {appointment.status}
-                    </Badge>
+                )) : (
+                  <div className="text-center py-6 text-muted-foreground">
+                    لا توجد مواعيد لليوم
                   </div>
-                </div>
-              ))}
-              {todaysAppointments.length === 0 && (
-                <div className="text-center py-6 text-muted-foreground">
-                  No appointments for today
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
         
         <Card className="bloom-card">
           <CardHeader>
-            <CardTitle className="bloom-heading">Pending Payments</CardTitle>
-            <CardDescription>Payments requiring follow-up</CardDescription>
+            <CardTitle className="bloom-heading">المدفوعات المعلقة</CardTitle>
+            <CardDescription>المدفوعات التي تتطلب متابعة</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {pendingPayments.map((payment) => (
-                <div 
-                  key={payment.id} 
-                  className="flex items-center justify-between p-3 rounded-md bg-white border border-muted"
-                >
-                  <div>
-                    <p className="font-medium">{payment.client}</p>
-                    <p className="text-sm text-muted-foreground">{payment.service}</p>
+            {isLoadingPayments ? (
+              <div className="flex items-center justify-center h-32">
+                <p>جاري تحميل البيانات...</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {pendingPayments && pendingPayments.length > 0 ? pendingPayments.map((payment) => (
+                  <div 
+                    key={payment.id} 
+                    className="flex items-center justify-between p-3 rounded-md bg-white border border-muted"
+                  >
+                    <div>
+                      <p className="font-medium">{payment.order?.client?.full_name || 'عميل غير معروف'}</p>
+                      <p className="text-sm text-muted-foreground">طلب #{payment.order_id.substring(0, 8)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium text-destructive">{payment.amount} جنيه</p>
+                      <p className="text-xs text-muted-foreground">تاريخ الاستحقاق: {new Date(payment.payment_date).toLocaleDateString('ar-EG')}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-medium text-destructive">{payment.amount} EGP</p>
-                    <p className="text-xs text-muted-foreground">Due: {new Date(payment.dueDate).toLocaleDateString()}</p>
+                )) : (
+                  <div className="text-center py-6 text-muted-foreground">
+                    لا توجد مدفوعات معلقة
                   </div>
-                </div>
-              ))}
-              {pendingPayments.length === 0 && (
-                <div className="text-center py-6 text-muted-foreground">
-                  No pending payments
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
