@@ -117,7 +117,7 @@ export const DashboardService = {
         (payments || []).forEach(payment => {
           const date = new Date(payment.payment_date);
           const month = monthNames[date.getMonth()];
-          monthlyData[month] += parseFloat(payment.amount as any);
+          monthlyData[month] += parseFloat(payment.amount.toString());
         });
         
         return Object.entries(monthlyData).map(([month, total]) => ({
@@ -126,9 +126,10 @@ export const DashboardService = {
         }));
       }
       
+      // Convert month numbers to month names and handle type conversion
       return (data || []).map(item => ({
         month: monthNames[item.month - 1], // Convert month number to name
-        total: parseFloat(item.total)
+        total: parseFloat(item.total.toString())
       }));
     } catch (error) {
       console.error('Error fetching monthly revenue:', error);
