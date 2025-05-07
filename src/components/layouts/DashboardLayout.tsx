@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { 
   SidebarProvider, 
@@ -16,7 +16,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton
 } from '@/components/ui/sidebar';
-import { Calendar, Home, User, Users, FileText, Database, Settings } from 'lucide-react';
+import { Calendar, Home, User, Users, FileText, Database, Settings, CreditCard, BarChart } from 'lucide-react';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -25,14 +25,17 @@ interface DashboardLayoutProps {
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
 
   const menuItems = [
-    { name: 'Dashboard', icon: Home, path: '/dashboard' },
-    { name: 'Clients', icon: Users, path: '/clients' },
-    { name: 'Orders', icon: FileText, path: '/orders' },
-    { name: 'Calendar', icon: Calendar, path: '/calendar' },
-    { name: 'Inventory', icon: Database, path: '/inventory' },
-    { name: 'Settings', icon: Settings, path: '/settings' },
+    { name: 'الرئيسية', icon: Home, path: '/dashboard' },
+    { name: 'العملاء', icon: Users, path: '/clients' },
+    { name: 'الطلبات', icon: FileText, path: '/orders' },
+    { name: 'المواعيد', icon: Calendar, path: '/calendar' },
+    { name: 'المخزون', icon: Database, path: '/inventory' },
+    { name: 'التقارير', icon: BarChart, path: '/reports' },
+    { name: 'المستحقات', icon: CreditCard, path: '/payments' },
+    { name: 'الإعدادات', icon: Settings, path: '/settings' },
   ];
 
   return (
@@ -57,7 +60,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                   {menuItems.map((item) => (
                     <SidebarMenuItem key={item.name}>
                       <SidebarMenuButton asChild>
-                        <Link to={item.path} className="flex items-center">
+                        <Link 
+                          to={item.path} 
+                          className={`flex items-center ${location.pathname === item.path ? 'bg-white/10' : ''}`}
+                        >
                           <item.icon className="h-5 w-5" />
                           <span>{item.name}</span>
                         </Link>
@@ -87,7 +93,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                 className="mt-3 w-full text-white border-white/20 hover:bg-white/10"
                 onClick={logout}
               >
-                {collapsed ? <User className="h-4 w-4" /> : 'Logout'}
+                {collapsed ? <User className="h-4 w-4" /> : 'تسجيل الخروج'}
               </Button>
             </div>
           </SidebarFooter>

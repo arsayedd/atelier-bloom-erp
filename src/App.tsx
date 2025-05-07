@@ -8,11 +8,18 @@ import { AuthProvider } from "./contexts/AuthContext";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import CalendarPage from "./pages/CalendarPage";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/layouts/DashboardLayout";
+import ClientsPage from "./pages/ClientsPage";
+import OrdersPage from "./pages/OrdersPage";
+import InventoryPage from "./pages/InventoryPage";
+import ReportsPage from "./pages/ReportsPage";
+import PaymentsPage from "./pages/PaymentsPage";
+import SettingsPage from "./pages/SettingsPage";
 
 const queryClient = new QueryClient();
 
@@ -27,15 +34,15 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             
-            <Route path="/" element={<ProtectedRoute><DashboardLayout><Dashboard /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/" element={<Index />} />
             <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout><Dashboard /></DashboardLayout></ProtectedRoute>} />
             <Route path="/calendar" element={<ProtectedRoute><DashboardLayout><CalendarPage /></DashboardLayout></ProtectedRoute>} />
-            
-            {/* Placeholder routes that will be implemented later */}
-            <Route path="/clients" element={<ProtectedRoute><DashboardLayout><div className="p-6">Clients Page - Coming Soon</div></DashboardLayout></ProtectedRoute>} />
-            <Route path="/orders" element={<ProtectedRoute><DashboardLayout><div className="p-6">Orders Page - Coming Soon</div></DashboardLayout></ProtectedRoute>} />
-            <Route path="/inventory" element={<ProtectedRoute><DashboardLayout><div className="p-6">Inventory Page - Coming Soon</div></DashboardLayout></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><DashboardLayout><div className="p-6">Settings Page - Coming Soon</div></DashboardLayout></ProtectedRoute>} />
+            <Route path="/clients" element={<ProtectedRoute><DashboardLayout><ClientsPage /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/orders" element={<ProtectedRoute><DashboardLayout><OrdersPage /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/inventory" element={<ProtectedRoute><DashboardLayout><InventoryPage /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute><DashboardLayout><ReportsPage /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/payments" element={<ProtectedRoute><DashboardLayout><PaymentsPage /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><DashboardLayout><SettingsPage /></DashboardLayout></ProtectedRoute>} />
             
             {/* 404 Route */}
             <Route path="*" element={<NotFound />} />
