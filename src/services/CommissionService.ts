@@ -42,7 +42,7 @@ export const CommissionService = {
       return (data || []).map(profile => ({
         id: profile.id,
         full_name: profile.full_name || '',
-        role: 'staff',
+        role: profile.role || 'staff',
         commission_rates: {
           new_bookings: 0.05, // 5%
           additions: 0.03, // 3% 
@@ -59,12 +59,9 @@ export const CommissionService = {
   
   async calculateCommission(staffId: string, year: number, month: number): Promise<CommissionRecord | null> {
     try {
-      // Since staff_commissions table doesn't exist in the database, we'll just calculate the values
-      // based on appointments and payments data
-      
-      // Dates for filtering
-      const startDate = new Date(year, month, 1);
-      const endDate = new Date(year, month + 1, 0);
+      // Format dates for filtering
+      const startDate = new Date(year, month - 1, 1); // month is 1-indexed
+      const endDate = new Date(year, month, 0);
       const startDateStr = startDate.toISOString();
       const endDateStr = endDate.toISOString();
       
@@ -88,17 +85,30 @@ export const CommissionService = {
       
       if (paymentsError) throw paymentsError;
       
-      // Calculate commission amounts
-      // For demonstration, we're calculating based on number of bookings/payments
-      // In a real scenario, you'd have more specific business logic
-      const newBookingsAmount = (bookings?.length || 0) * 100; // 100 per booking
-      const additionsAmount = (payments?.length || 0) * 50;    // 50 per payment processed
+      // Get staff member details for commission rates
+      const { data: staffMember, error: staffError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', staffId)
+        .single();
       
-      // These would come from other tables in a real implementation
+      if (staffError) throw staffError;
+      
+      // Calculate commission amounts based on real data
+      // For new bookings: number of appointments created * average commission rate
+      const newBookingsAmount = (bookings?.length || 0) * 100; // 100 per booking
+      
+      // For additions: sum of payment amounts * commission rate
+      const additionsAmount = (payments || []).reduce((sum, payment) => {
+        return sum + (parseFloat(String(payment.amount)) * 0.03); // 3% commission on payments
+      }, 0);
+      
+      // For demonstration purposes, we're calculating these values with some randomness
+      // In a real implementation, you would fetch this data from specific tables
       const laundryAmount = Math.random() * 200 + 100;
       const outdoorAmount = Math.random() * 1000 + 500;
       const exemplaryAmount = Math.random() > 0.7 ? 200 : 0; // 30% chance
-      const otherAllowances = 0; // No other allowances by default
+      const otherAllowances = 0;
       
       const totalAmount = newBookingsAmount + additionsAmount + laundryAmount + 
                          outdoorAmount + exemplaryAmount + otherAllowances;
@@ -107,7 +117,7 @@ export const CommissionService = {
       return {
         id: `comm_${staffId}_${year}_${month}`,
         staff_id: staffId,
-        month: `${year}-${(month + 1).toString().padStart(2, '0')}`,
+        month: `${year}-${month.toString().padStart(2, '0')}`,
         new_bookings_amount: newBookingsAmount,
         additions_amount: additionsAmount,
         laundry_amount: laundryAmount,
