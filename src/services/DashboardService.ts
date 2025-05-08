@@ -127,8 +127,10 @@ export const DashboardService = {
       }
       
       // Convert month numbers to month names and handle type conversion
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      
       return (data || []).map(item => ({
-        month: monthNames[item.month - 1], // Convert month number to name
+        month: monthNames[parseInt(item.month) - 1], // Convert month number to name and ensure it's a number
         total: parseFloat(item.total.toString())
       }));
     } catch (error) {
