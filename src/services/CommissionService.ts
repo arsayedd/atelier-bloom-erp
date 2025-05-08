@@ -59,18 +59,8 @@ export const CommissionService = {
   
   async calculateCommission(staffId: string, year: number, month: number): Promise<CommissionRecord | null> {
     try {
-      // Check if commission record already exists
-      const { data: existingRecords, error: existingError } = await supabase
-        .from('staff_commissions')
-        .select('*')
-        .eq('staff_id', staffId)
-        .eq('month', `${year}-${(month + 1).toString().padStart(2, '0')}`)
-        .single();
-      
-      if (!existingError && existingRecords) {
-        // Return existing record if found
-        return existingRecords as CommissionRecord;
-      }
+      // Since staff_commissions table doesn't exist in the database, we'll just calculate the values
+      // based on appointments and payments data
       
       // Dates for filtering
       const startDate = new Date(year, month, 1);
@@ -113,8 +103,7 @@ export const CommissionService = {
       const totalAmount = newBookingsAmount + additionsAmount + laundryAmount + 
                          outdoorAmount + exemplaryAmount + otherAllowances;
       
-      // In a real implementation, you would create an entry in staff_commissions table
-      // For now, we just return the calculated values
+      // Return the calculated commission data
       return {
         id: `comm_${staffId}_${year}_${month}`,
         staff_id: staffId,

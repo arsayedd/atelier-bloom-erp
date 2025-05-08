@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
 import { DashboardService } from '@/services/DashboardService';
+import { toast } from '@/components/ui/sonner';
 
 const Dashboard = () => {
   const [date, setDate] = React.useState<Date | undefined>(new Date());
@@ -13,17 +14,29 @@ const Dashboard = () => {
   // Fetch dashboard data
   const { data: revenueData, isLoading: isLoadingRevenue } = useQuery({
     queryKey: ['dashboard', 'revenue'],
-    queryFn: () => DashboardService.getMonthlyRevenue()
+    queryFn: () => DashboardService.getMonthlyRevenue(),
+    onError: (error: any) => {
+      console.error('Error fetching revenue data:', error);
+      toast.error('فشل في تحميل بيانات الإيرادات');
+    }
   });
   
   const { data: appointments, isLoading: isLoadingAppointments } = useQuery({
     queryKey: ['dashboard', 'appointments'],
-    queryFn: () => DashboardService.getTodayAppointments()
+    queryFn: () => DashboardService.getTodayAppointments(),
+    onError: (error: any) => {
+      console.error('Error fetching appointments:', error);
+      toast.error('فشل في تحميل بيانات المواعيد');
+    }
   });
   
   const { data: pendingPayments, isLoading: isLoadingPayments } = useQuery({
     queryKey: ['dashboard', 'payments'],
-    queryFn: () => DashboardService.getPendingPayments()
+    queryFn: () => DashboardService.getPendingPayments(),
+    onError: (error: any) => {
+      console.error('Error fetching pending payments:', error);
+      toast.error('فشل في تحميل بيانات المدفوعات المعلقة');
+    }
   });
 
   return (

@@ -15,6 +15,7 @@ export interface ReferralCode {
 export interface ReferralStats {
   client_id: string;
   client_name: string;
+  client_phone?: string;
   referrals_count: number;
   total_discount: number;
 }

@@ -256,27 +256,17 @@ export const ReportService = {
   async getTopReferrers(limit: number = 10): Promise<ReferralReport[]> {
     // Use the ReferralService to get top referrers
     try {
-      // We'll fetch this from the ReferralService which now connects to the database
-      const { data, error } = await supabase.rpc('get_top_referrers', { limit_param: limit });
+      // Import the ReferralService directly
+      const { ReferralService } = await import('./ReferralService');
+      const referrers = await ReferralService.getTopReferrers(limit);
       
-      if (error) {
-        // Import the ReferralService directly
-        const { ReferralService } = await import('./ReferralService');
-        return await ReferralService.getTopReferrers(limit);
-      }
-      
-      if (!data || data.length === 0) {
-        // Import the ReferralService as fallback
-        const { ReferralService } = await import('./ReferralService');
-        return await ReferralService.getTopReferrers(limit);
-      }
-      
-      return data.map((row: any) => ({
-        client_id: row.client_id,
-        client_name: row.client_name,
-        client_phone: row.client_phone || 'غير متاح',
-        referrals_count: parseInt(row.referrals_count),
-        total_discount: parseFloat(row.total_discount)
+      // Convert ReferralStats to ReferralReport
+      return referrers.map(referrer => ({
+        client_id: referrer.client_id,
+        client_name: referrer.client_name,
+        client_phone: referrer.client_phone || 'غير متاح',
+        referrals_count: referrer.referrals_count,
+        total_discount: referrer.total_discount
       }));
     } catch (error) {
       console.error('Error fetching top referrers:', error);
