@@ -130,8 +130,8 @@ export const DashboardService = {
       const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       
       return (data || []).map(item => ({
-        month: monthNames[parseInt(item.month) - 1], // Convert month number to name and ensure it's a number
-        total: parseFloat(item.total.toString())
+        month: monthNames[parseInt(String(item.month)) - 1], // Convert month number to name ensuring it's handled as a string first
+        total: parseFloat(String(item.total))
       }));
     } catch (error) {
       console.error('Error fetching monthly revenue:', error);

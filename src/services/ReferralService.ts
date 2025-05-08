@@ -1,0 +1,143 @@
+
+import { supabase } from '@/integrations/supabase/client';
+
+export interface ReferralCode {
+  id: string;
+  code: string;
+  discount_percentage: number;
+  expiration_date?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+}
+
+export const ReferralService = {
+  async getReferralCodes(): Promise<ReferralCode[]> {
+    try {
+      const { data, error } = await supabase
+        .from('referral_codes')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching referral codes:', error);
+      return [];
+    }
+  },
+  
+  async getReferralCodeById(id: string): Promise<ReferralCode | null> {
+    try {
+      const { data, error } = await supabase
+        .from('referral_codes')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error(`Error fetching referral code ${id}:`, error);
+      return null;
+    }
+  },
+  
+  async getReferralCodeByCode(code: string): Promise<ReferralCode | null> {
+    try {
+      const { data, error } = await supabase
+        .from('referral_codes')
+        .select('*')
+        .eq('code', code)
+        .eq('is_active', true)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error(`Error fetching referral code with code ${code}:`, error);
+      return null;
+    }
+  },
+  
+  async createReferralCode(referral: Omit<ReferralCode, 'id' | 'created_at' | 'updated_at'>): Promise<string | null> {
+    try {
+      // Set default expiration date to 1 year if not provided
+      if (!referral.expiration_date) {
+        const oneYearFromNow = new Date();
+        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+        referral.expiration_date = oneYearFromNow.toISOString();
+      }
+      
+      const { data, error } = await supabase
+        .from('referral_codes')
+        .insert([referral])
+        .select();
+      
+      if (error) throw error;
+      return data && data[0] ? data[0].id : null;
+    } catch (error) {
+      console.error('Error creating referral code:', error);
+      return null;
+    }
+  },
+  
+  async updateReferralCode(id: string, updates: Partial<ReferralCode>): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('referral_codes')
+        .update(updates)
+        .eq('id', id);
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error(`Error updating referral code ${id}:`, error);
+      return false;
+    }
+  },
+  
+  async deleteReferralCode(id: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('referral_codes')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error(`Error deleting referral code ${id}:`, error);
+      return false;
+    }
+  },
+  
+  async generateReferralCodeForClient(clientId: string, clientName: string): Promise<string | null> {
+    try {
+      // Generate a unique code based on client name and current timestamp
+      const timestamp = Date.now().toString(36);
+      const nameCode = clientName
+        .replace(/\s+/g, '')
+        .substring(0, 4)
+        .toLowerCase();
+      
+      const code = `${nameCode}-${timestamp}`.toUpperCase();
+      
+      // Create referral code with 1-year validity and fixed 800 EGP value (10% discount)
+      const referral: Omit<ReferralCode, 'id' | 'created_at' | 'updated_at'> = {
+        code,
+        discount_percentage: 10,
+        is_active: true,
+        created_by: clientId
+      };
+      
+      const referralId = await this.createReferralCode(referral);
+      
+      return referralId ? code : null;
+    } catch (error) {
+      console.error(`Error generating referral code for client ${clientId}:`, error);
+      return null;
+    }
+  }
+};
