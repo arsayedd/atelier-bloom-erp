@@ -103,15 +103,53 @@ export const CommissionService = {
         return sum + (parseFloat(String(payment.amount)) * 0.03); // 3% commission on payments
       }, 0);
       
-      // For demonstration purposes, we're calculating these values with some randomness
-      // In a real implementation, you would fetch this data from specific tables
-      const laundryAmount = Math.random() * 200 + 100;
-      const outdoorAmount = Math.random() * 1000 + 500;
-      const exemplaryAmount = Math.random() > 0.7 ? 200 : 0; // 30% chance
-      const otherAllowances = 0;
+      // Get laundry services handled by this staff
+      const { data: laundryServices, error: laundryError } = await supabase
+        .from('order_items')
+        .select('*, orders!inner(*)')
+        .eq('category', 'laundry')
+        .eq('orders.created_by', staffId)
+        .gte('created_at', startDateStr)
+        .lte('created_at', endDateStr);
+      
+      const laundryAmount = laundryServices && laundryServices.length > 0 
+        ? laundryServices.reduce((sum, item) => sum + (parseFloat(String(item.price || 0)) * 0.02), 0) 
+        : 0;
+      
+      // Get outdoor services handled by this staff
+      const { data: outdoorServices, error: outdoorError } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('created_by', staffId)
+        .eq('location_type', 'outdoor')
+        .gte('date', startDateStr)
+        .lte('date', endDateStr);
+      
+      const outdoorAmount = outdoorServices && outdoorServices.length > 0 
+        ? outdoorServices.reduce((sum, appt) => sum + (parseFloat(String(appt.price || 0)) * 0.07), 0) 
+        : 0;
+      
+      // For exemplary performance - can be calculated based on number of 5-star reviews
+      // For demo purposes, we'll use a random value if data isn't available
+      let exemplaryAmount = 0;
+      
+      // Check for exemplary ratings/reviews
+      const { data: exemplaryReviews, error: reviewsError } = await supabase
+        .from('reviews')
+        .select('rating')
+        .eq('staff_id', staffId)
+        .gte('created_at', startDateStr)
+        .lte('created_at', endDateStr)
+        .gte('rating', 4.5);
+        
+      if (!reviewsError && exemplaryReviews && exemplaryReviews.length > 0) {
+        exemplaryAmount = exemplaryReviews.length * 50; // 50 per excellent review
+      }
+      
+      const otherAllowances = 0; // Can be manually set if needed
       
       const totalAmount = newBookingsAmount + additionsAmount + laundryAmount + 
-                         outdoorAmount + exemplaryAmount + otherAllowances;
+                        outdoorAmount + exemplaryAmount + otherAllowances;
       
       // Return the calculated commission data
       return {
