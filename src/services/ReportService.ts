@@ -182,27 +182,102 @@ export const ReportService = {
     }
   },
   
-  async getTopReferrers(limit: number = 10): Promise<ReferralReport[]> {
-    // For this to work, we would need a referrals table in the database
-    // This is a placeholder implementation
+  async getStaffCommissions(year: number, month: number): Promise<StaffCommission[]> {
     try {
-      // Mock data for now
-      return [
-        {
-          client_id: 'c1',
-          client_name: 'سارة أحمد',
-          client_phone: '01012345678',
-          referrals_count: 5,
-          total_discount: 4000
-        },
-        {
-          client_id: 'c2',
-          client_name: 'نور محمد',
-          client_phone: '01112345678',
-          referrals_count: 3,
-          total_discount: 2400
-        }
-      ];
+      // Get staff members
+      const { data: staff, error: staffError } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('role', 'staff');
+      
+      if (staffError) throw staffError;
+      
+      if (!staff || staff.length === 0) return [];
+      
+      // Get commission data for each staff member
+      const commissions: StaffCommission[] = [];
+      
+      for (const member of staff) {
+        // Calculate commission for each staff member
+        // In a real implementation, this would fetch from a commissions table
+        // Here we're simulating calculation
+        
+        const startDate = new Date(year, month, 1).toISOString();
+        const endDate = new Date(year, month + 1, 0).toISOString();
+        
+        // Get bookings created by this staff member
+        const { data: bookings } = await supabase
+          .from('appointments')
+          .select('id')
+          .eq('created_by', member.id)
+          .gte('created_at', startDate)
+          .lte('created_at', endDate);
+          
+        // Get payments processed by this staff member
+        const { data: payments } = await supabase
+          .from('payments')
+          .select('amount')
+          .eq('created_by', member.id)
+          .gte('created_at', startDate)
+          .lte('created_at', endDate);
+        
+        // Calculate commission amounts
+        const newBookings = (bookings?.length || 0) * 50;
+        const additions = payments?.reduce((sum, payment) => sum + parseFloat(String(payment.amount)) * 0.03, 0) || 0;
+        
+        // These would be calculated from other tables in a real implementation
+        const laundry = Math.floor(Math.random() * 200);
+        const outdoor = Math.floor(Math.random() * 300);
+        const exemplary = Math.random() > 0.7 ? 100 : 0;
+        const otherAllowances = 0;
+        
+        const total = newBookings + additions + laundry + outdoor + exemplary + otherAllowances;
+        
+        commissions.push({
+          staff_id: member.id,
+          staff_name: member.full_name || 'غير معروف',
+          new_bookings: newBookings,
+          additions,
+          laundry,
+          outdoor,
+          exemplary,
+          other_allowances: otherAllowances,
+          total
+        });
+      }
+      
+      return commissions;
+    } catch (error) {
+      console.error('Error generating staff commissions report:', error);
+      return [];
+    }
+  },
+  
+  async getTopReferrers(limit: number = 10): Promise<ReferralReport[]> {
+    // Use the ReferralService to get top referrers
+    try {
+      // We'll fetch this from the ReferralService which now connects to the database
+      const { data, error } = await supabase.rpc('get_top_referrers', { limit_param: limit });
+      
+      if (error) {
+        // Import the ReferralService directly
+        const { ReferralService } = await import('./ReferralService');
+        return await ReferralService.getTopReferrers(limit);
+      }
+      
+      if (!data || data.length === 0) {
+        // Import the ReferralService as fallback
+        const { ReferralService } = await import('./ReferralService');
+        return await ReferralService.getTopReferrers(limit);
+      }
+      
+      return data.map((row: any) => ({
+        client_id: row.client_id,
+        client_name: row.client_name,
+        client_phone: row.client_phone || 'غير متاح',
+        referrals_count: parseInt(row.referrals_count),
+        total_discount: parseFloat(row.total_discount)
+      }));
     } catch (error) {
       console.error('Error fetching top referrers:', error);
       return [];

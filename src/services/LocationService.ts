@@ -22,35 +22,40 @@ export const LocationService = {
       if (error) throw error;
       
       // Filter out forbidden governorates (وجه قبلي)
-      return (data || []).filter(gov => {
-        // Logic to exclude specific governorates
-        // You would need to define which governorates are in "وجه قبلي"
-        const forbiddenGovernorates = [
-          'أسوان', 'الأقصر', 'أسيوط', 'سوهاج', 'قنا', 'المنيا', 'بني سويف'
-        ];
-        
-        return !forbiddenGovernorates.includes(gov.name);
-      }).sort((a, b) => {
-        // Custom sorting for specific governorates
-        const preferredOrder = ['الدقهلية', 'الغربية', 'القليوبية', 'الشرقية'];
-        
-        const aIndex = preferredOrder.indexOf(a.name);
-        const bIndex = preferredOrder.indexOf(b.name);
-        
-        // If both items are in the preferred list, sort by their position in that list
-        if (aIndex >= 0 && bIndex >= 0) {
-          return aIndex - bIndex;
-        }
-        
-        // If only a is in the preferred list, it comes first
-        if (aIndex >= 0) return -1;
-        
-        // If only b is in the preferred list, it comes first
-        if (bIndex >= 0) return 1;
-        
-        // Otherwise, use alphabetical sorting
-        return a.name.localeCompare(b.name);
-      });
+      return (data || [])
+        .filter(gov => {
+          // Logic to exclude specific governorates
+          const forbiddenGovernorates = [
+            'أسوان', 'الأقصر', 'أسيوط', 'سوهاج', 'قنا', 'المنيا', 'بني سويف'
+          ];
+          
+          return !forbiddenGovernorates.includes(gov.name);
+        })
+        .map(gov => ({
+          ...gov,
+          type: 'governorate' as 'governorate' // Type assertion to ensure it matches the Location interface
+        }))
+        .sort((a, b) => {
+          // Custom sorting for specific governorates
+          const preferredOrder = ['الدقهلية', 'الغربية', 'القليوبية', 'الشرقية'];
+          
+          const aIndex = preferredOrder.indexOf(a.name);
+          const bIndex = preferredOrder.indexOf(b.name);
+          
+          // If both items are in the preferred list, sort by their position in that list
+          if (aIndex >= 0 && bIndex >= 0) {
+            return aIndex - bIndex;
+          }
+          
+          // If only a is in the preferred list, it comes first
+          if (aIndex >= 0) return -1;
+          
+          // If only b is in the preferred list, it comes first
+          if (bIndex >= 0) return 1;
+          
+          // Otherwise, use alphabetical sorting
+          return a.name.localeCompare(b.name);
+        });
     } catch (error) {
       console.error('Error fetching governorates:', error);
       return [];
@@ -67,7 +72,12 @@ export const LocationService = {
         .order('name');
       
       if (error) throw error;
-      return data || [];
+      
+      // Ensure the type is correctly set to 'city'
+      return (data || []).map(city => ({
+        ...city,
+        type: 'city' as 'city' // Type assertion to ensure it matches the Location interface
+      }));
     } catch (error) {
       console.error(`Error fetching cities for governorate ${governorateId}:`, error);
       return [];

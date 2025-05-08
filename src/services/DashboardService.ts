@@ -68,7 +68,7 @@ export const DashboardService = {
       return (data || []).map(order => ({
         id: order.id,
         order_id: order.id,
-        amount: parseFloat(order.total_amount) - parseFloat(order.paid_amount),
+        amount: parseFloat(String(order.total_amount)) - parseFloat(String(order.paid_amount)),
         payment_date: new Date().toISOString(),
         order: {
           client_id: order.client_id,
@@ -117,7 +117,7 @@ export const DashboardService = {
         (payments || []).forEach(payment => {
           const date = new Date(payment.payment_date);
           const month = monthNames[date.getMonth()];
-          monthlyData[month] += parseFloat(payment.amount.toString());
+          monthlyData[month] += parseFloat(String(payment.amount));
         });
         
         return Object.entries(monthlyData).map(([month, total]) => ({
@@ -136,19 +136,8 @@ export const DashboardService = {
     } catch (error) {
       console.error('Error fetching monthly revenue:', error);
       
-      // Return mock data if all attempts fail
-      return [
-        { month: 'Jan', total: 1200 },
-        { month: 'Feb', total: 900 },
-        { month: 'Mar', total: 1500 },
-        { month: 'Apr', total: 1800 },
-        { month: 'May', total: 1600 },
-        { month: 'Jun', total: 2100 },
-        { month: 'Jul', total: 1700 },
-      ];
+      // Return empty data if all attempts fail
+      return [];
     }
   }
 };
-
-// Helper for month names
-const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

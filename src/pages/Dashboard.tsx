@@ -48,27 +48,33 @@ const Dashboard = () => {
                   <p>جاري تحميل البيانات...</p>
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={revenueData}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'white', 
-                        borderRadius: '8px', 
-                        border: '1px solid #e2b8ff' 
-                      }}
-                      formatter={(value) => [`${value} جنيه`, 'الإيرادات']}
-                    />
-                    <Bar 
-                      dataKey="total" 
-                      fill="#9b55d3" 
-                      radius={[4, 4, 0, 0]}
-                      name="الإيرادات (جنيه)" 
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+                revenueData && revenueData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={revenueData}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'white', 
+                          borderRadius: '8px', 
+                          border: '1px solid #e2b8ff' 
+                        }}
+                        formatter={(value) => [`${value} جنيه`, 'الإيرادات']}
+                      />
+                      <Bar 
+                        dataKey="total" 
+                        fill="#9b55d3" 
+                        radius={[4, 4, 0, 0]}
+                        name="الإيرادات (جنيه)" 
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <p>لا توجد إيرادات مسجلة للعرض</p>
+                  </div>
+                )
               )}
             </div>
           </CardContent>
