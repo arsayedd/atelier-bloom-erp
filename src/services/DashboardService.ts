@@ -85,6 +85,7 @@ export const DashboardService = {
   
   async getMonthlyRevenue(): Promise<RevenueData[]> {
     try {
+      // Use the database function to get monthly revenue
       const { data, error } = await supabase
         .rpc('get_monthly_revenue', {
           year_param: new Date().getFullYear()

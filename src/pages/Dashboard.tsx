@@ -15,27 +15,33 @@ const Dashboard = () => {
   const { data: revenueData, isLoading: isLoadingRevenue } = useQuery({
     queryKey: ['dashboard', 'revenue'],
     queryFn: () => DashboardService.getMonthlyRevenue(),
-    onError: (error) => {
-      console.error('Error fetching revenue data:', error);
-      toast.error('فشل في تحميل بيانات الإيرادات');
+    meta: {
+      onError: (error: Error) => {
+        console.error('Error fetching revenue data:', error);
+        toast.error('فشل في تحميل بيانات الإيرادات');
+      }
     }
   });
   
   const { data: appointments, isLoading: isLoadingAppointments } = useQuery({
     queryKey: ['dashboard', 'appointments'],
     queryFn: () => DashboardService.getTodayAppointments(),
-    onError: (error) => {
-      console.error('Error fetching appointments:', error);
-      toast.error('فشل في تحميل بيانات المواعيد');
+    meta: {
+      onError: (error: Error) => {
+        console.error('Error fetching appointments:', error);
+        toast.error('فشل في تحميل بيانات المواعيد');
+      }
     }
   });
   
   const { data: pendingPayments, isLoading: isLoadingPayments } = useQuery({
     queryKey: ['dashboard', 'payments'],
     queryFn: () => DashboardService.getPendingPayments(),
-    onError: (error) => {
-      console.error('Error fetching pending payments:', error);
-      toast.error('فشل في تحميل بيانات المدفوعات المعلقة');
+    meta: {
+      onError: (error: Error) => {
+        console.error('Error fetching pending payments:', error);
+        toast.error('فشل في تحميل بيانات المدفوعات المعلقة');
+      }
     }
   });
 
