@@ -18,6 +18,8 @@ export interface Payment {
   order_id: string;
   amount: number;
   payment_date: string;
+  payment_method?: string;
+  notes?: string;
   order?: {
     client_id: string;
     client?: {
@@ -35,14 +37,17 @@ export const DashboardService = {
   async getTodayAppointments(): Promise<Appointment[]> {
     try {
       const today = new Date();
-      const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-      const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+      const startOfDay = new Date(today);
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const endOfDay = new Date(today);
+      endOfDay.setHours(23, 59, 59, 999);
       
       const { data, error } = await supabase
         .from('appointments')
         .select('*, client:client_id(full_name)')
-        .gte('date', startOfDay)
-        .lte('date', endOfDay)
+        .gte('date', startOfDay.toISOString())
+        .lte('date', endOfDay.toISOString())
         .order('date');
       
       if (error) throw error;
@@ -56,38 +61,41 @@ export const DashboardService = {
   
   async getPendingPayments(): Promise<Payment[]> {
     try {
+      // First attempt: Get pending payments from the payments table
       const { data, error } = await supabase
         .from('payments')
-        .select('id, amount, payment_date, order_id, order:order_id(client_id, client:client_id(full_name))')
+        .select('id, amount, payment_date, payment_method, notes, order_id, order:order_id(client_id, client:client_id(full_name))')
         .order('payment_date', { ascending: false })
         .limit(5);
       
-      if (error) {
-        // إذا فشل الاستعلام الأول، نحاول استخدام استعلام آخر
-        const { data: ordersData, error: ordersError } = await supabase
-          .from('orders')
-          .select('id, client_id, client:client_id(full_name), total_amount, paid_amount')
-          .lt('paid_amount', 'total_amount')
-          .order('created_at', { ascending: false })
-          .limit(5);
-        
-        if (ordersError) throw ordersError;
-        
-        return (ordersData || []).map(order => ({
-          id: `pending_${order.id}`,
-          order_id: order.id,
-          amount: parseFloat(String(order.total_amount)) - parseFloat(String(order.paid_amount)),
-          payment_date: new Date().toISOString(),
-          order: {
-            client_id: order.client_id,
-            client: {
-              full_name: order.client.full_name
-            }
-          }
-        }));
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        return data;
       }
       
-      return data || [];
+      // Second attempt: Get orders with remaining balance
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('id, client_id, client:client_id(full_name), total_amount, paid_amount, created_at')
+        .lt('paid_amount', 'total_amount')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      if (ordersError) throw ordersError;
+      
+      return (ordersData || []).map(order => ({
+        id: `pending_${order.id}`,
+        order_id: order.id,
+        amount: parseFloat(String(order.total_amount)) - parseFloat(String(order.paid_amount)),
+        payment_date: new Date().toISOString(), // Use current date as due date
+        order: {
+          client_id: order.client_id,
+          client: {
+            full_name: order.client.full_name
+          }
+        }
+      }));
     } catch (error) {
       console.error('Error fetching pending payments:', error);
       return [];
@@ -96,16 +104,16 @@ export const DashboardService = {
   
   async getMonthlyRevenue(): Promise<RevenueData[]> {
     try {
-      // استخدام دالة قاعدة البيانات للحصول على الإيرادات الشهرية
+      // Use the database function to get monthly revenue
       const { data, error } = await supabase
         .rpc('get_monthly_revenue', {
           year_param: new Date().getFullYear()
         });
       
-      if (error) {
-        console.error('RPC error:', error);
-        
-        // احتياطيًا نستخدم الحساب اليدوي إذا فشل RPC
+      if (error) throw error;
+      
+      if (!data || data.length === 0) {
+        // Fallback to manual calculation if RPC returns no data
         const currentYear = new Date().getFullYear();
         const startDate = new Date(currentYear, 0, 1).toISOString();
         const endDate = new Date(currentYear, 11, 31).toISOString();
@@ -118,7 +126,7 @@ export const DashboardService = {
           
         if (paymentsError) throw paymentsError;
         
-        // تجميع المدفوعات حسب الشهر
+        // Group payments by month
         const monthlyData: { [key: string]: number } = {};
         const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
         
@@ -138,17 +146,17 @@ export const DashboardService = {
         }));
       }
       
-      // تحويل أرقام الشهور إلى أسماء الشهور ومعالجة تحويلات الأنواع
+      // Convert month numbers to month names
       const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       
-      return (data || []).map(item => ({
+      return data.map(item => ({
         month: monthNames[parseInt(String(item.month)) - 1], 
         total: parseFloat(String(item.total))
       }));
     } catch (error) {
       console.error('Error fetching monthly revenue:', error);
       
-      // إرجاع بيانات فارغة إذا فشلت كل المحاولات
+      // Return empty data structure if all attempts fail
       return [];
     }
   }

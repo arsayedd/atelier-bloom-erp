@@ -1,12 +1,13 @@
 
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar } from '@/components/ui/calendar';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
 import { DashboardService } from '@/services/DashboardService';
 import { toast } from '@/components/ui/sonner';
+import RevenueChart from '@/components/dashboard/RevenueChart';
+import DashboardCalendar from '@/components/dashboard/DashboardCalendar';
+import TodayAppointments from '@/components/dashboard/TodayAppointments';
+import PendingPayments from '@/components/dashboard/PendingPayments';
 
 const Dashboard = () => {
   const [date, setDate] = React.useState<Date | undefined>(new Date());
@@ -55,151 +56,13 @@ const Dashboard = () => {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bloom-card md:col-span-2">
-          <CardHeader>
-            <CardTitle className="bloom-heading">نظرة عامة على الإيرادات</CardTitle>
-            <CardDescription>الإيرادات الشهرية للسنة الحالية</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              {isLoadingRevenue ? (
-                <div className="flex items-center justify-center h-full">
-                  <p>جاري تحميل البيانات...</p>
-                </div>
-              ) : (
-                revenueData && revenueData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={revenueData}>
-                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'white', 
-                          borderRadius: '8px', 
-                          border: '1px solid #e2b8ff' 
-                        }}
-                        formatter={(value) => [`${value} جنيه`, 'الإيرادات']}
-                      />
-                      <Bar 
-                        dataKey="total" 
-                        fill="#9b55d3" 
-                        radius={[4, 4, 0, 0]}
-                        name="الإيرادات (جنيه)" 
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-muted-foreground">
-                    <p>لا توجد إيرادات مسجلة للعرض</p>
-                  </div>
-                )
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bloom-card">
-          <CardHeader>
-            <CardTitle className="bloom-heading">التقويم</CardTitle>
-            <CardDescription>استعراض وإدارة المواعيد</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Calendar
-              mode="single"
-              selected={date}
-              onSelect={setDate}
-              className="rounded-md border"
-            />
-          </CardContent>
-        </Card>
+        <RevenueChart data={revenueData} isLoading={isLoadingRevenue} />
+        <DashboardCalendar date={date} setDate={setDate} />
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="bloom-card">
-          <CardHeader>
-            <CardTitle className="bloom-heading">مواعيد اليوم</CardTitle>
-            <CardDescription>
-              {new Date().toLocaleDateString('ar-EG', { weekday: 'long', month: 'long', day: 'numeric' })}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoadingAppointments ? (
-              <div className="flex items-center justify-center h-32">
-                <p>جاري تحميل البيانات...</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {appointments && appointments.length > 0 ? appointments.map((appointment) => (
-                  <div 
-                    key={appointment.id} 
-                    className="flex items-center justify-between p-3 rounded-md bg-white border border-muted"
-                  >
-                    <div>
-                      <p className="font-medium">{appointment.client?.full_name || 'عميل غير معروف'}</p>
-                      <p className="text-sm text-muted-foreground">{appointment.notes || 'موعد'}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">{new Date(appointment.date).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</p>
-                      <Badge 
-                        variant="outline" 
-                        className={`${
-                          appointment.status === 'confirmed' || appointment.status === 'scheduled'
-                            ? 'bg-green-100 text-green-800 border-green-200' 
-                            : 'bg-amber-100 text-amber-800 border-amber-200'
-                        }`}
-                      >
-                        {appointment.status === 'confirmed' ? 'مؤكد' : 
-                         appointment.status === 'scheduled' ? 'مجدول' : 
-                         appointment.status === 'pending' ? 'معلق' : appointment.status}
-                      </Badge>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="text-center py-6 text-muted-foreground">
-                    لا توجد مواعيد لليوم
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        
-        <Card className="bloom-card">
-          <CardHeader>
-            <CardTitle className="bloom-heading">المدفوعات المعلقة</CardTitle>
-            <CardDescription>المدفوعات التي تتطلب متابعة</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoadingPayments ? (
-              <div className="flex items-center justify-center h-32">
-                <p>جاري تحميل البيانات...</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {pendingPayments && pendingPayments.length > 0 ? pendingPayments.map((payment) => (
-                  <div 
-                    key={payment.id} 
-                    className="flex items-center justify-between p-3 rounded-md bg-white border border-muted"
-                  >
-                    <div>
-                      <p className="font-medium">{payment.order?.client?.full_name || 'عميل غير معروف'}</p>
-                      <p className="text-sm text-muted-foreground">طلب #{payment.order_id.substring(0, 8)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-destructive">{payment.amount} جنيه</p>
-                      <p className="text-xs text-muted-foreground">تاريخ الاستحقاق: {new Date(payment.payment_date).toLocaleDateString('ar-EG')}</p>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="text-center py-6 text-muted-foreground">
-                    لا توجد مدفوعات معلقة
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <TodayAppointments appointments={appointments} isLoading={isLoadingAppointments} />
+        <PendingPayments payments={pendingPayments} isLoading={isLoadingPayments} />
       </div>
     </div>
   );

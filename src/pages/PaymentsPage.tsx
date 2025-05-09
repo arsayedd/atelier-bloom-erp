@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -14,7 +14,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Tabs,
@@ -33,98 +32,16 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Search, CreditCard, Check, Plus, Calendar } from 'lucide-react';
+import { Search, CreditCard, Check, Calendar } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-
-// Mock data for pending payments
-const mockPendingPayments = [
-  {
-    id: 'PAY1001',
-    orderId: 'ORD1001',
-    clientId: 'C1001',
-    clientName: 'سارة أحمد',
-    clientPhone: '01012345678',
-    date: '2023-05-25',
-    dueDate: '2023-05-30',
-    total: 3500,
-    paid: 1500,
-    remaining: 2000,
-    service: 'ميكب زفاف',
-    type: 'makeup',
-    status: 'pending', // pending, overdue, completed
-    notes: 'تم دفع العربون، باقي التسوية بعد الخدمة',
-  },
-  {
-    id: 'PAY1002',
-    orderId: 'ORD1004',
-    clientId: 'C1001',
-    clientName: 'سارة أحمد',
-    clientPhone: '01012345678',
-    date: '2023-05-25',
-    dueDate: '2023-05-30',
-    total: 5000,
-    paid: 2500,
-    remaining: 2500,
-    service: 'إيجار فستان زفاف',
-    type: 'atelier',
-    status: 'pending',
-    notes: 'مرتبط بطلب الميكب',
-  },
-  {
-    id: 'PAY1003',
-    orderId: 'ORD1002',
-    clientId: 'C1002',
-    clientName: 'نور محمد',
-    clientPhone: '01112345678',
-    date: '2023-05-20',
-    dueDate: '2023-05-25',
-    total: 1800,
-    paid: 1000,
-    remaining: 800,
-    service: 'ميكب سواريه',
-    type: 'makeup',
-    status: 'overdue',
-    notes: 'متأخر عن موعد السداد',
-  },
-  {
-    id: 'PAY1004',
-    orderId: 'ORD1005',
-    clientId: 'C1005',
-    clientName: 'مريم محمود',
-    clientPhone: '01512345678',
-    date: '2023-05-18',
-    dueDate: '2023-06-01',
-    total: 6500,
-    paid: 3000,
-    remaining: 3500,
-    service: 'بيع فستان خطوبة',
-    type: 'atelier',
-    status: 'pending',
-    notes: 'تقسيط على دفعتين',
-  },
-  {
-    id: 'PAY1005',
-    orderId: 'ORD1006',
-    clientId: 'C1003',
-    clientName: 'فاطمة علي',
-    clientPhone: '01212345678',
-    date: '2023-05-10',
-    dueDate: '2023-05-20',
-    total: 2200,
-    paid: 1200,
-    remaining: 1000,
-    service: 'تنظيف بشرة عميق + عناية',
-    type: 'skincare',
-    status: 'overdue',
-    notes: 'متأخر عن موعد السداد بأكثر من 5 أيام',
-  },
-];
+import { PaymentService, PendingPayment } from '@/services/PaymentService';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 const PaymentsPage = () => {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [pendingPayments, setPendingPayments] = useState(mockPendingPayments);
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<any>(null);
+  const [selectedPayment, setSelectedPayment] = useState<PendingPayment | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   
   // Payment form state
@@ -135,20 +52,50 @@ const PaymentsPage = () => {
     notes: '',
   });
   
-  // Filter payments based on search term and active tab
-  const filteredPayments = pendingPayments.filter(payment => {
-    const matchesSearch = 
-      payment.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.service.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesTab = 
-      activeTab === 'all' || 
-      (activeTab === 'overdue' && payment.status === 'overdue') ||
-      (activeTab === payment.type);
-    
-    return matchesSearch && matchesTab && payment.status !== 'completed';
+  // Fetch pending payments
+  const { data: pendingPayments, isLoading } = useQuery({
+    queryKey: ['pendingPayments'],
+    queryFn: PaymentService.getPendingPayments,
+    meta: {
+      onError: (error: Error) => {
+        console.error('Error fetching pending payments:', error);
+        toast.error('فشل في تحميل بيانات المدفوعات المستحقة');
+      }
+    }
   });
+  
+  // Create payment mutation
+  const createPayment = useMutation({
+    mutationFn: (paymentData: any) => {
+      return PaymentService.createPayment(paymentData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pendingPayments'] });
+      toast.success('تم تسجيل الدفعة بنجاح');
+      setIsAddPaymentOpen(false);
+    },
+    onError: (error) => {
+      console.error('Error creating payment:', error);
+      toast.error('حدث خطأ أثناء تسجيل الدفعة');
+    },
+  });
+  
+  // Filter payments based on search term and active tab
+  const filteredPayments = pendingPayments 
+    ? pendingPayments.filter(payment => {
+        const matchesSearch = 
+          payment.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          payment.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          payment.service.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        const matchesTab = 
+          activeTab === 'all' || 
+          (activeTab === 'overdue' && payment.status === 'overdue') ||
+          (activeTab === payment.type);
+        
+        return matchesSearch && matchesTab && payment.status !== 'completed';
+      })
+    : [];
   
   // Calculate total remaining amount
   const totalRemaining = filteredPayments.reduce((acc, payment) => acc + payment.remaining, 0);
@@ -173,35 +120,17 @@ const PaymentsPage = () => {
       return;
     }
     
-    // Update payment record
-    const newRemaining = selectedPayment.remaining - paymentForm.amount;
-    const newPaid = selectedPayment.paid + paymentForm.amount;
-    const newStatus = newRemaining === 0 ? 'completed' : selectedPayment.status;
-    
-    const updatedPayments = pendingPayments.map(payment => {
-      if (payment.id === selectedPayment.id) {
-        return {
-          ...payment,
-          remaining: newRemaining,
-          paid: newPaid,
-          status: newStatus,
-        };
-      }
-      return payment;
+    // Create payment record
+    createPayment.mutate({
+      order_id: selectedPayment.orderId,
+      amount: paymentForm.amount,
+      payment_date: paymentForm.date,
+      payment_method: paymentForm.method,
+      notes: paymentForm.notes,
     });
     
-    setPendingPayments(updatedPayments);
-    
-    // Show success message
-    if (newRemaining === 0) {
-      toast.success(`تم تسديد كامل المبلغ بنجاح (${paymentForm.amount} ج.م)`);
-    } else {
-      toast.success(`تم تسديد ${paymentForm.amount} ج.م بنجاح. المتبقي: ${newRemaining} ج.م`);
-    }
-    
-    // Reset the form and close the dialog
+    // Reset the form
     resetPaymentForm();
-    setIsAddPaymentOpen(false);
   };
   
   // Reset payment form
@@ -313,82 +242,87 @@ const PaymentsPage = () => {
           </Tabs>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>رقم الطلب</TableHead>
-                <TableHead>العميل</TableHead>
-                <TableHead>الخدمة</TableHead>
-                <TableHead>تاريخ الاستحقاق</TableHead>
-                <TableHead>الإجمالي</TableHead>
-                <TableHead>المدفوع</TableHead>
-                <TableHead>المتبقي</TableHead>
-                <TableHead>الحالة</TableHead>
-                <TableHead>إجراءات</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredPayments.map((payment) => (
-                <TableRow key={payment.id}>
-                  <TableCell>{payment.orderId}</TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{payment.clientName}</div>
-                      <div className="text-sm text-muted-foreground">{payment.clientPhone}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={
-                      payment.type === 'makeup' ? 'bg-purple-100 text-purple-800 border-purple-200' :
-                      payment.type === 'skincare' ? 'bg-blue-100 text-blue-800 border-blue-200' :
-                      'bg-pink-100 text-pink-800 border-pink-200'
-                    }>
-                      {payment.service}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {new Date(payment.dueDate).toLocaleDateString('ar-EG')}
-                    </div>
-                  </TableCell>
-                  <TableCell>{payment.total} ج.م</TableCell>
-                  <TableCell>{payment.paid} ج.م</TableCell>
-                  <TableCell className="font-medium text-red-500">
-                    {payment.remaining} ج.م
-                  </TableCell>
-                  <TableCell>
-                    {getStatusBadge(payment.status, payment.dueDate)}
-                  </TableCell>
-                  <TableCell>
-                    <Button 
-                      className="bg-bloom-primary hover:bg-bloom-primary/90" 
-                      size="sm"
-                      onClick={() => {
-                        setSelectedPayment(payment);
-                        setPaymentForm({...paymentForm, amount: payment.remaining});
-                        setIsAddPaymentOpen(true);
-                      }}
-                    >
-                      <CreditCard className="mr-2 h-4 w-4" />
-                      تسديد
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filteredPayments.length === 0 && (
+          {isLoading ? (
+            <div className="flex items-center justify-center h-40">
+              <p>جاري تحميل البيانات...</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-6">
-                    {activeTab === 'all' 
-                      ? 'لا توجد مدفوعات مستحقة' 
-                      : activeTab === 'overdue'
-                        ? 'لا توجد مدفوعات متأخرة'
-                        : 'لا توجد مدفوعات مستحقة في هذا القسم'}
-                  </TableCell>
+                  <TableHead>رقم الطلب</TableHead>
+                  <TableHead>العميل</TableHead>
+                  <TableHead>الخدمة</TableHead>
+                  <TableHead>تاريخ الاستحقاق</TableHead>
+                  <TableHead>الإجمالي</TableHead>
+                  <TableHead>المدفوع</TableHead>
+                  <TableHead>المتبقي</TableHead>
+                  <TableHead>الحالة</TableHead>
+                  <TableHead>إجراءات</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredPayments.length > 0 ? filteredPayments.map((payment) => (
+                  <TableRow key={payment.id}>
+                    <TableCell>{payment.orderId}</TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{payment.clientName}</div>
+                        <div className="text-sm text-muted-foreground">{payment.clientPhone}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={
+                        payment.type === 'makeup' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                        payment.type === 'skincare' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                        'bg-pink-100 text-pink-800 border-pink-200'
+                      }>
+                        {payment.service}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {new Date(payment.dueDate).toLocaleDateString('ar-EG')}
+                      </div>
+                    </TableCell>
+                    <TableCell>{payment.total} ج.م</TableCell>
+                    <TableCell>{payment.paid} ج.م</TableCell>
+                    <TableCell className="font-medium text-red-500">
+                      {payment.remaining} ج.م
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(payment.status, payment.dueDate)}
+                    </TableCell>
+                    <TableCell>
+                      <Button 
+                        className="bg-bloom-primary hover:bg-bloom-primary/90" 
+                        size="sm"
+                        onClick={() => {
+                          setSelectedPayment(payment);
+                          setPaymentForm({...paymentForm, amount: payment.remaining});
+                          setIsAddPaymentOpen(true);
+                        }}
+                      >
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        تسديد
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-6">
+                      {activeTab === 'all' 
+                        ? 'لا توجد مدفوعات مستحقة' 
+                        : activeTab === 'overdue'
+                          ? 'لا توجد مدفوعات متأخرة'
+                          : 'لا توجد مدفوعات مستحقة في هذا القسم'}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
       
@@ -485,7 +419,7 @@ const PaymentsPage = () => {
             <Button 
               className="bg-bloom-primary hover:bg-bloom-primary/90" 
               onClick={handlePayment}
-              disabled={paymentForm.amount <= 0 || paymentForm.amount > (selectedPayment?.remaining || 0)}
+              disabled={paymentForm.amount <= 0 || paymentForm.amount > (selectedPayment?.remaining || 0) || createPayment.isPending}
             >
               <Check className="mr-2 h-4 w-4" />
               تأكيد السداد

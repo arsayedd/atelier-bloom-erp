@@ -13,199 +13,180 @@ export interface Payment {
   created_by?: string;
   order?: {
     client_id: string;
-    total_amount: number;
-    paid_amount: number;
     client?: {
       full_name: string;
-      phone: string;
-    }
+      phone?: string;
+    };
   };
 }
 
+export interface PendingPayment {
+  id: string;
+  orderId: string;
+  clientId: string;
+  clientName: string;
+  clientPhone: string;
+  date: string;
+  dueDate: string;
+  total: number;
+  paid: number;
+  remaining: number;
+  service: string;
+  type: string;
+  status: string;
+  notes?: string;
+}
+
 export const PaymentService = {
-  async getPayments(): Promise<Payment[]> {
+  async getAllPayments(): Promise<Payment[]> {
     try {
       const { data, error } = await supabase
         .from('payments')
-        .select('*, order:order_id(client_id, total_amount, paid_amount, client:client_id(full_name, phone))')
+        .select('*, order:order_id(client_id, client:client_id(full_name, phone))')
         .order('payment_date', { ascending: false });
       
       if (error) throw error;
+      
       return data || [];
     } catch (error) {
       console.error('Error fetching payments:', error);
       return [];
     }
   },
-  
-  async getPaymentById(id: string): Promise<Payment | null> {
+
+  async getPendingPayments(): Promise<PendingPayment[]> {
     try {
-      const { data, error } = await supabase
-        .from('payments')
-        .select('*, order:order_id(client_id, total_amount, paid_amount, client:client_id(full_name, phone))')
-        .eq('id', id)
-        .single();
+      // Get orders with unpaid amounts
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select(`
+          id, 
+          client_id,
+          client:client_id(full_name, phone), 
+          order_date, 
+          delivery_date,
+          total_amount, 
+          paid_amount,
+          status,
+          notes
+        `)
+        .lt('paid_amount', 'total_amount')
+        .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error(`Error fetching payment ${id}:`, error);
-      return null;
-    }
-  },
-  
-  async getPaymentsByOrderId(orderId: string): Promise<Payment[]> {
-    try {
-      const { data, error } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('order_id', orderId)
-        .order('payment_date');
       
-      if (error) throw error;
-      return data || [];
+      if (!orders || orders.length === 0) return [];
+      
+      // Get order items to determine service type
+      const orderIds = orders.map(order => order.id);
+      
+      const { data: orderItems, error: itemsError } = await supabase
+        .from('order_items')
+        .select('order_id, item_type, description')
+        .in('order_id', orderIds);
+      
+      if (itemsError) throw itemsError;
+      
+      // Map to PendingPayment structure
+      return orders.map(order => {
+        // Find related order items
+        const items = orderItems?.filter(item => item.order_id === order.id) || [];
+        const mainItem = items[0];  // Use first item to determine type
+        
+        // Determine type based on item_type
+        let type = 'unknown';
+        if (mainItem) {
+          if (mainItem.item_type.includes('makeup')) type = 'makeup';
+          else if (mainItem.item_type.includes('skincare')) type = 'skincare';
+          else if (mainItem.item_type.includes('atelier')) type = 'atelier';
+        }
+        
+        // Set due date as delivery date or 7 days after order date
+        const orderDate = new Date(order.order_date);
+        const dueDate = order.delivery_date 
+          ? new Date(order.delivery_date)
+          : new Date(orderDate.setDate(orderDate.getDate() + 7));
+        
+        // Determine status
+        const today = new Date();
+        let status = 'pending';
+        if (dueDate < today) {
+          status = 'overdue';
+        }
+        
+        return {
+          id: `payment_${order.id}`,
+          orderId: order.id,
+          clientId: order.client_id,
+          clientName: order.client?.full_name || 'عميل غير معروف',
+          clientPhone: order.client?.phone || '',
+          date: order.order_date,
+          dueDate: dueDate.toISOString(),
+          total: parseFloat(String(order.total_amount)),
+          paid: parseFloat(String(order.paid_amount)),
+          remaining: parseFloat(String(order.total_amount)) - parseFloat(String(order.paid_amount)),
+          service: mainItem?.description || 'خدمة غير محددة',
+          type,
+          status,
+          notes: order.notes
+        };
+      });
     } catch (error) {
-      console.error(`Error fetching payments for order ${orderId}:`, error);
+      console.error('Error fetching pending payments:', error);
       return [];
     }
   },
-  
-  async createPayment(payment: Omit<Payment, 'id' | 'created_at'>): Promise<string | null> {
+
+  async createPayment(payment: Omit<Payment, 'id' | 'created_at'>): Promise<Payment | null> {
     try {
-      // First get the current order to update paid_amount
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .select('paid_amount')
-        .eq('id', payment.order_id)
-        .single();
-      
-      if (orderError) throw orderError;
-      
-      if (!orderData) {
-        throw new Error('Order not found');
-      }
-      
-      // Create payment
       const { data, error } = await supabase
         .from('payments')
         .insert([payment])
-        .select();
+        .select()
+        .single();
       
       if (error) throw error;
       
-      if (data && data[0]) {
-        // Update order paid_amount
-        const newPaidAmount = parseFloat(String(orderData.paid_amount)) + payment.amount;
+      // Update the order's paid_amount
+      if (data) {
+        const { data: order, error: orderError } = await supabase
+          .from('orders')
+          .select('paid_amount')
+          .eq('id', payment.order_id)
+          .single();
+        
+        if (orderError) throw orderError;
+        
+        const newPaidAmount = parseFloat(String(order.paid_amount)) + payment.amount;
         
         const { error: updateError } = await supabase
           .from('orders')
           .update({ paid_amount: newPaidAmount })
           .eq('id', payment.order_id);
         
-        if (updateError) {
-          console.error('Failed to update order paid amount:', updateError);
-        }
-        
-        return data[0].id;
+        if (updateError) throw updateError;
       }
       
-      return null;
+      return data;
     } catch (error) {
       console.error('Error creating payment:', error);
       return null;
     }
   },
-  
-  async deletePayment(id: string): Promise<boolean> {
+
+  async getPaymentsByOrderId(orderId: string): Promise<Payment[]> {
     try {
-      // First get the payment and order to adjust the paid_amount
-      const { data: payment, error: paymentError } = await supabase
+      const { data, error } = await supabase
         .from('payments')
-        .select('order_id, amount')
-        .eq('id', id)
-        .single();
-      
-      if (paymentError) throw paymentError;
-      
-      if (!payment) {
-        throw new Error('Payment not found');
-      }
-      
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .select('paid_amount')
-        .eq('id', payment.order_id)
-        .single();
-      
-      if (orderError) throw orderError;
-      
-      if (!order) {
-        throw new Error('Order not found');
-      }
-      
-      // Delete the payment
-      const { error } = await supabase
-        .from('payments')
-        .delete()
-        .eq('id', id);
+        .select('*')
+        .eq('order_id', orderId)
+        .order('payment_date', { ascending: false });
       
       if (error) throw error;
       
-      // Update order paid_amount
-      const newPaidAmount = Math.max(0, parseFloat(String(order.paid_amount)) - parseFloat(String(payment.amount)));
-      
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({ paid_amount: newPaidAmount })
-        .eq('id', payment.order_id);
-      
-      if (updateError) {
-        console.error('Failed to update order paid amount:', updateError);
-      }
-      
-      return true;
+      return data || [];
     } catch (error) {
-      console.error(`Error deleting payment ${id}:`, error);
-      return false;
-    }
-  },
-  
-  async getPendingPaymentsByType(type?: string): Promise<Payment[]> {
-    try {
-      // Get orders with outstanding balances
-      let query = supabase
-        .from('orders')
-        .select('id, client_id, total_amount, paid_amount, client:client_id(full_name, phone), order_items!inner(item_type)')
-        .lt('paid_amount', 'total_amount');
-      
-      // Apply filter by type if specified
-      if (type) {
-        query = query.like('order_items.item_type', `%${type}%`);
-      }
-      
-      const { data, error } = await query;
-      
-      if (error) throw error;
-      
-      if (!data || data.length === 0) return [];
-      
-      // Transform to Payment objects
-      return data.map(order => ({
-        id: `pending_${order.id}`,
-        order_id: order.id,
-        amount: parseFloat(String(order.total_amount)) - parseFloat(String(order.paid_amount)),
-        payment_date: new Date().toISOString(),
-        payment_method: 'pending',
-        created_at: new Date().toISOString(),
-        order: {
-          client_id: order.client_id,
-          total_amount: parseFloat(String(order.total_amount)),
-          paid_amount: parseFloat(String(order.paid_amount)),
-          client: order.client
-        }
-      }));
-    } catch (error) {
-      console.error('Error fetching pending payments:', error);
+      console.error(`Error fetching payments for order ${orderId}:`, error);
       return [];
     }
   }
