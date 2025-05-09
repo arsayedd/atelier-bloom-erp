@@ -11,7 +11,7 @@ import { toast } from '@/components/ui/sonner';
 const Dashboard = () => {
   const [date, setDate] = React.useState<Date | undefined>(new Date());
   
-  // Fetch dashboard data
+  // استعلام بيانات لوحة المعلومات
   const { data: revenueData, isLoading: isLoadingRevenue } = useQuery({
     queryKey: ['dashboard', 'revenue'],
     queryFn: () => DashboardService.getMonthlyRevenue(),

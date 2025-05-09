@@ -59,13 +59,13 @@ export const CommissionService = {
   
   async calculateCommission(staffId: string, year: number, month: number): Promise<CommissionRecord | null> {
     try {
-      // Format dates for filtering
+      // تنسيق التواريخ للترشيح
       const startDate = new Date(year, month - 1, 1); // month is 1-indexed
       const endDate = new Date(year, month, 0);
       const startDateStr = startDate.toISOString();
       const endDateStr = endDate.toISOString();
       
-      // Get all bookings handled by this staff member in the given month
+      // الحصول على جميع الحجوزات التي تعامل معها هذا الموظف في الشهر المحدد
       const { data: bookings, error: bookingsError } = await supabase
         .from('appointments')
         .select('*')
@@ -75,7 +75,7 @@ export const CommissionService = {
       
       if (bookingsError) throw bookingsError;
       
-      // Get payments/additions handled by this staff in the given month
+      // الحصول على المدفوعات/الإضافات التي تعامل معها هذا الموظف في الشهر المحدد
       const { data: payments, error: paymentsError } = await supabase
         .from('payments')
         .select('*')
@@ -85,7 +85,7 @@ export const CommissionService = {
       
       if (paymentsError) throw paymentsError;
       
-      // Get staff member details for commission rates
+      // الحصول على بيانات الموظف لمعدلات العمولة
       const { data: staffMember, error: staffError } = await supabase
         .from('profiles')
         .select('*')
@@ -94,16 +94,16 @@ export const CommissionService = {
       
       if (staffError) throw staffError;
       
-      // Calculate commission amounts based on real data
-      // For new bookings: number of appointments created * average commission rate
-      const newBookingsAmount = (bookings?.length || 0) * 100; // 100 per booking
+      // حساب مبالغ العمولة بناءً على البيانات الفعلية
+      // بالنسبة للحجوزات الجديدة: عدد المواعيد التي تم إنشاؤها * متوسط معدل العمولة
+      const newBookingsAmount = (bookings?.length || 0) * 100; // 100 لكل حجز
       
-      // For additions: sum of payment amounts * commission rate
+      // بالنسبة للإضافات: مجموع مبالغ الدفع * معدل العمولة
       const additionsAmount = (payments || []).reduce((sum, payment) => {
-        return sum + (parseFloat(String(payment.amount)) * 0.03); // 3% commission on payments
+        return sum + (parseFloat(String(payment.amount)) * 0.03); // 3% عمولة على المدفوعات
       }, 0);
       
-      // Get laundry services handled by this staff
+      // الحصول على خدمات الغسيل التي يتعامل معها هذا الموظف
       const { data: laundryServices, error: laundryError } = await supabase
         .from('order_items')
         .select('*, orders(*)')
@@ -116,7 +116,7 @@ export const CommissionService = {
         return sum + (parseFloat(String(item.price || 0)) * 0.02);
       }, 0);
       
-      // Get outdoor appointments handled by this staff
+      // الحصول على المواعيد الخارجية التي يتعامل معها هذا الموظف
       const { data: outdoorAppointments, error: outdoorError } = await supabase
         .from('appointments')
         .select('*')
@@ -125,35 +125,35 @@ export const CommissionService = {
         .gte('date', startDateStr)
         .lte('date', endDateStr);
       
-      // Since 'price' might not exist directly on the appointments table
-      // We'll calculate a fixed amount per outdoor appointment
-      const outdoorAmount = (outdoorAppointments?.length || 0) * 150; // 150 per outdoor appointment
+      // بما أن "السعر" قد لا يوجد مباشرة في جدول المواعيد
+      // سنقوم بحساب مبلغ ثابت لكل موعد خارجي
+      const outdoorAmount = (outdoorAppointments?.length || 0) * 150; // 150 لكل موعد خارجي
       
-      // For exemplary performance - based on number of positive reviews
+      // للأداء المثالي - بناءً على عدد المراجعات الإيجابية
       let exemplaryAmount = 0;
       
-      // We need to check if a 'reviews' table exists
+      // نحتاج إلى التحقق مما إذا كان جدول "المراجعات" موجودًا
       const { count, error: tableError } = await supabase
-        .from('profiles')  // Use an existing table to check if there are staff with good performance
+        .from('profiles')  // استخدام جدول موجود للتحقق مما إذا كان هناك موظفون ذوو أداء جيد
         .select('*', { count: 'exact', head: true })
         .eq('role', 'staff')
         .eq('id', staffId);
         
-      // If the staff exists, allocate an exemplary performance bonus if they have good metrics
+      // إذا كان الموظف موجودًا، فخصص مكافأة أداء مثالي إذا كان لديهم مقاييس جيدة
       if (!tableError && count && count > 0) {
-        // We could base this on metrics like bookings:payment ratio, client retention, etc.
-        // For now, give a bonus if they have processed more than 5 bookings or payments
+        // يمكن أن نعتمد على مقاييس مثل نسبة الحجز:الدفع، واحتفاظ العملاء، إلخ
+        // في الوقت الحالي، امنح مكافأة إذا كانوا قد عالجوا أكثر من 5 حجوزات أو مدفوعات
         if ((bookings?.length || 0) > 5 || (payments?.length || 0) > 5) {
-          exemplaryAmount = 200; // Fixed bonus for exemplary staff
+          exemplaryAmount = 200; // مكافأة ثابتة للموظفين المثاليين
         }
       }
       
-      const otherAllowances = 0; // Can be manually set if needed
+      const otherAllowances = 0; // يمكن تعيينها يدويًا إذا لزم الأمر
       
       const totalAmount = newBookingsAmount + additionsAmount + laundryAmount + 
                         outdoorAmount + exemplaryAmount + otherAllowances;
       
-      // Return the calculated commission data
+      // إرجاع بيانات العمولة المحسوبة
       return {
         id: `comm_${staffId}_${year}_${month}`,
         staff_id: staffId,

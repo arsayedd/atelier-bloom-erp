@@ -57,26 +57,37 @@ export const DashboardService = {
   async getPendingPayments(): Promise<Payment[]> {
     try {
       const { data, error } = await supabase
-        .from('orders')
-        .select('id, client_id, client:client_id(full_name), total_amount, paid_amount')
-        .lt('paid_amount', 'total_amount')
-        .order('created_at', { ascending: false })
+        .from('payments')
+        .select('id, amount, payment_date, order_id, order:order_id(client_id, client:client_id(full_name))')
+        .order('payment_date', { ascending: false })
         .limit(5);
       
-      if (error) throw error;
-      
-      return (data || []).map(order => ({
-        id: order.id,
-        order_id: order.id,
-        amount: parseFloat(String(order.total_amount)) - parseFloat(String(order.paid_amount)),
-        payment_date: new Date().toISOString(),
-        order: {
-          client_id: order.client_id,
-          client: {
-            full_name: order.client.full_name
+      if (error) {
+        // إذا فشل الاستعلام الأول، نحاول استخدام استعلام آخر
+        const { data: ordersData, error: ordersError } = await supabase
+          .from('orders')
+          .select('id, client_id, client:client_id(full_name), total_amount, paid_amount')
+          .lt('paid_amount', 'total_amount')
+          .order('created_at', { ascending: false })
+          .limit(5);
+        
+        if (ordersError) throw ordersError;
+        
+        return (ordersData || []).map(order => ({
+          id: `pending_${order.id}`,
+          order_id: order.id,
+          amount: parseFloat(String(order.total_amount)) - parseFloat(String(order.paid_amount)),
+          payment_date: new Date().toISOString(),
+          order: {
+            client_id: order.client_id,
+            client: {
+              full_name: order.client.full_name
+            }
           }
-        }
-      }));
+        }));
+      }
+      
+      return data || [];
     } catch (error) {
       console.error('Error fetching pending payments:', error);
       return [];
@@ -85,7 +96,7 @@ export const DashboardService = {
   
   async getMonthlyRevenue(): Promise<RevenueData[]> {
     try {
-      // Use the database function to get monthly revenue
+      // استخدام دالة قاعدة البيانات للحصول على الإيرادات الشهرية
       const { data, error } = await supabase
         .rpc('get_monthly_revenue', {
           year_param: new Date().getFullYear()
@@ -94,7 +105,7 @@ export const DashboardService = {
       if (error) {
         console.error('RPC error:', error);
         
-        // Fallback to manual calculation if RPC fails
+        // احتياطيًا نستخدم الحساب اليدوي إذا فشل RPC
         const currentYear = new Date().getFullYear();
         const startDate = new Date(currentYear, 0, 1).toISOString();
         const endDate = new Date(currentYear, 11, 31).toISOString();
@@ -107,7 +118,7 @@ export const DashboardService = {
           
         if (paymentsError) throw paymentsError;
         
-        // Group payments by month
+        // تجميع المدفوعات حسب الشهر
         const monthlyData: { [key: string]: number } = {};
         const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
         
@@ -127,17 +138,17 @@ export const DashboardService = {
         }));
       }
       
-      // Convert month numbers to month names and handle type conversion
+      // تحويل أرقام الشهور إلى أسماء الشهور ومعالجة تحويلات الأنواع
       const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       
       return (data || []).map(item => ({
-        month: monthNames[parseInt(String(item.month)) - 1], // Convert month number to name ensuring it's handled as a string first
+        month: monthNames[parseInt(String(item.month)) - 1], 
         total: parseFloat(String(item.total))
       }));
     } catch (error) {
       console.error('Error fetching monthly revenue:', error);
       
-      // Return empty data if all attempts fail
+      // إرجاع بيانات فارغة إذا فشلت كل المحاولات
       return [];
     }
   }
