@@ -49,13 +49,19 @@ const OrdersPage = () => {
     }
   });
   
-  // Create order mutation
+  // Create order mutation - Fix the return type to always be a string
   const createOrder = useMutation({
-    mutationFn: (orderData: any) => {
+    mutationFn: async (orderData: any): Promise<string> => {
       if (selectedOrder) {
-        return OrderService.updateOrder(selectedOrder.id, orderData);
+        const result = await OrderService.updateOrder(selectedOrder.id, orderData);
+        // Convert boolean result to string
+        return result ? selectedOrder.id : Promise.reject('Failed to update order');
       } else {
-        return OrderService.createOrder(orderData, []); // Empty items array for now
+        const orderId = await OrderService.createOrder(orderData, []);
+        if (!orderId) {
+          return Promise.reject('Failed to create order');
+        }
+        return orderId;
       }
     },
     onSuccess: () => {
