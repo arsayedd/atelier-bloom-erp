@@ -50,6 +50,41 @@ export type Database = {
           },
         ]
       }
+      cities: {
+        Row: {
+          created_at: string
+          governorate_id: string
+          id: string
+          name: string
+          order_num: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          governorate_id: string
+          id?: string
+          name: string
+          order_num: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          governorate_id?: string
+          id?: string
+          name?: string
+          order_num?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cities_governorate_id_fkey"
+            columns: ["governorate_id"]
+            isOneToOne: false
+            referencedRelation: "governorates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null
@@ -151,6 +186,63 @@ export type Database = {
           rental_price?: number
           sale_price?: number | null
           size?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      employees: {
+        Row: {
+          active: boolean
+          commission_rates: Json
+          created_at: string
+          id: string
+          name: string
+          phone: string
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          commission_rates?: Json
+          created_at?: string
+          id?: string
+          name: string
+          phone: string
+          role: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          commission_rates?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      governorates: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          order_num: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          order_num: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          order_num?: number
           updated_at?: string
         }
         Relationships: []
@@ -395,6 +487,72 @@ export type Database = {
           id?: string
           is_active?: boolean
           updated_at?: string
+        }
+        Relationships: []
+      }
+      referral_coupons: {
+        Row: {
+          amount: number
+          client_id: string | null
+          code: string
+          created_at: string
+          id: string
+          issued_to: string | null
+          status: string
+          type: string
+          updated_at: string
+          usage_count: number
+          valid_until: string
+        }
+        Insert: {
+          amount: number
+          client_id?: string | null
+          code: string
+          created_at?: string
+          id?: string
+          issued_to?: string | null
+          status?: string
+          type: string
+          updated_at?: string
+          usage_count?: number
+          valid_until: string
+        }
+        Update: {
+          amount?: number
+          client_id?: string | null
+          code?: string
+          created_at?: string
+          id?: string
+          issued_to?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          usage_count?: number
+          valid_until?: string
+        }
+        Relationships: []
+      }
+      system_settings: {
+        Row: {
+          id: string
+          key: string
+          type: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          type?: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          type?: string
+          updated_at?: string
+          value?: string
         }
         Relationships: []
       }
