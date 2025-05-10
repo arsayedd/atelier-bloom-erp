@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -13,8 +14,9 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { Order } from '@/services/OrderService';
 import { orderCategories } from '@/services/OrderService';
+import { ClientService } from '@/services/ClientService';
+import { toast } from '@/components/ui/sonner';
 
-// Mock clients data temporarily - should be replaced with real data
 interface Client {
   id: string;
   full_name: string;
@@ -40,18 +42,22 @@ const OrderForm: React.FC<OrderFormProps> = ({ selectedOrder, onSave, onCancel }
     paidAmount: 0,
     remainingAmount: 0,
     notes: '',
+    discountCode: '',
   });
   
   // State for dynamic options
   const [availableSubtypes, setAvailableSubtypes] = useState<any[]>([]);
   const [availableSpecifics, setAvailableSpecifics] = useState<any[]>([]);
 
-  // Mock clients - should be replaced with a real API call
-  const mockClients: Client[] = [
-    { id: 'C1001', full_name: 'سارة أحمد' },
-    { id: 'C1002', full_name: 'نور محمد' },
-    { id: 'C1003', full_name: 'فاطمة علي' },
-  ];
+  // Fetch real clients from the database
+  const { data: clients, isLoading: isLoadingClients, error: clientsError } = useQuery({
+    queryKey: ['clients'],
+    queryFn: ClientService.getClients,
+    onError: (error) => {
+      console.error('Failed to fetch clients:', error);
+      toast.error('فشل في تحميل بيانات العملاء');
+    }
+  });
 
   // Effect to initialize form when selectedOrder changes
   useEffect(() => {
@@ -69,6 +75,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ selectedOrder, onSave, onCancel }
         paidAmount: parseFloat(String(selectedOrder.paid_amount)),
         remainingAmount: parseFloat(String(selectedOrder.total_amount)) - parseFloat(String(selectedOrder.paid_amount)),
         notes: selectedOrder.notes || '',
+        discountCode: '',
       });
     } else {
       resetForm();
@@ -102,7 +109,6 @@ const OrderForm: React.FC<OrderFormProps> = ({ selectedOrder, onSave, onCancel }
   
   // Handle client change
   const handleClientChange = (value: string) => {
-    const selectedClient = mockClients.find(client => client.id === value);
     setFormData({
       ...formData, 
       clientId: value
@@ -121,6 +127,12 @@ const OrderForm: React.FC<OrderFormProps> = ({ selectedOrder, onSave, onCancel }
     const price = Number(value) || 0;
     const remainingAmount = price - formData.paidAmount;
     setFormData({...formData, price, remainingAmount});
+  };
+
+  // Handle discount code
+  const handleDiscountCodeChange = (value: string) => {
+    setFormData({...formData, discountCode: value});
+    // In a real implementation, you would validate the discount code and apply it
   };
   
   // Handle form submission
@@ -152,10 +164,15 @@ const OrderForm: React.FC<OrderFormProps> = ({ selectedOrder, onSave, onCancel }
       paidAmount: 0,
       remainingAmount: 0,
       notes: '',
+      discountCode: '',
     });
     setAvailableSubtypes([]);
     setAvailableSpecifics([]);
   };
+
+  if (clientsError) {
+    console.error('Error loading clients:', clientsError);
+  }
 
   return (
     <div className="grid gap-4 py-4">
@@ -169,11 +186,17 @@ const OrderForm: React.FC<OrderFormProps> = ({ selectedOrder, onSave, onCancel }
             <SelectValue placeholder="اختر العميل" />
           </SelectTrigger>
           <SelectContent>
-            {mockClients.map((client) => (
-              <SelectItem key={client.id} value={client.id}>
-                {client.full_name}
-              </SelectItem>
-            ))}
+            {isLoadingClients ? (
+              <SelectItem value="loading" disabled>جاري التحميل...</SelectItem>
+            ) : clients && clients.length > 0 ? (
+              clients.map((client) => (
+                <SelectItem key={client.id} value={client.id}>
+                  {client.full_name}
+                </SelectItem>
+              ))
+            ) : (
+              <SelectItem value="no-clients" disabled>لا يوجد عملاء</SelectItem>
+            )}
           </SelectContent>
         </Select>
       </div>
@@ -285,6 +308,16 @@ const OrderForm: React.FC<OrderFormProps> = ({ selectedOrder, onSave, onCancel }
       </div>
       
       <div className="space-y-2">
+        <Label htmlFor="discountCode">كود خصم</Label>
+        <Input 
+          id="discountCode" 
+          value={formData.discountCode} 
+          onChange={(e) => handleDiscountCodeChange(e.target.value)} 
+          placeholder="أدخل كود الخصم إن وجد"
+        />
+      </div>
+      
+      <div className="space-y-2">
         <Label htmlFor="status">الحالة</Label>
         <Select 
           value={formData.status} 
@@ -304,7 +337,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ selectedOrder, onSave, onCancel }
       
       <div className="space-y-2">
         <Label htmlFor="notes">ملاحظات</Label>
-        <Input 
+        <Textarea 
           id="notes" 
           value={formData.notes} 
           onChange={(e) => setFormData({...formData, notes: e.target.value})} 
@@ -312,7 +345,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ selectedOrder, onSave, onCancel }
         />
       </div>
       
-      <div className="flex justify-end space-x-4">
+      <div className="flex justify-end space-x-4 rtl:space-x-reverse">
         <Button 
           variant="outline" 
           onClick={onCancel}

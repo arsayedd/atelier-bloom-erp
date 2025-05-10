@@ -8,6 +8,12 @@ export interface Client {
   phone: string;
   email?: string;
   address?: string;
+  emergency_phone?: string;
+  governorate?: string;
+  city?: string;
+  country?: string;
+  reference_source?: string;
+  client_code?: string;
   notes?: string;
   created_at?: string;
   updated_at?: string;
