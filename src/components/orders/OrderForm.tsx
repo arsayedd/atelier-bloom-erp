@@ -53,9 +53,11 @@ const OrderForm: React.FC<OrderFormProps> = ({ selectedOrder, onSave, onCancel }
   const { data: clients, isLoading: isLoadingClients, error: clientsError } = useQuery({
     queryKey: ['clients'],
     queryFn: ClientService.getClients,
-    onError: (error) => {
-      console.error('Failed to fetch clients:', error);
-      toast.error('فشل في تحميل بيانات العملاء');
+    meta: {
+      onError: (error: any) => {
+        console.error('Failed to fetch clients:', error);
+        toast.error('فشل في تحميل بيانات العملاء');
+      }
     }
   });
 
