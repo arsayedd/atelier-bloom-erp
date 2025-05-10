@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -33,100 +33,113 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
-// Mock data for reports
-const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-
-// Revenue data
-const revenueData = [
-  { category: "ميكب زفاف", amount: 45000 },
-  { category: "ميكب مناسبات", amount: 15000 },
-  { category: "ميكب سواريه", amount: 18000 },
-  { category: "تنظيف بشرة", amount: 12000 },
-  { category: "إيجار فساتين", amount: 40000 },
-  { category: "بيع فساتين", amount: 35000 },
-];
-
-// Monthly data for 2023
-const monthlyData = [
-  { month: 'يناير', revenue: 23000, expenses: 10000, profit: 13000 },
-  { month: 'فبراير', revenue: 25000, expenses: 11000, profit: 14000 },
-  { month: 'مارس', revenue: 32000, expenses: 13000, profit: 19000 },
-  { month: 'أبريل', revenue: 30000, expenses: 12500, profit: 17500 },
-  { month: 'مايو', revenue: 35000, expenses: 14000, profit: 21000 },
-];
-
-// Expenses data
-const expensesData = [
-  { category: "مرتبات", amount: 18000 },
-  { category: "إيجار", amount: 10000 },
-  { category: "مواد خام", amount: 8000 },
-  { category: "مرافق", amount: 3000 },
-  { category: "تسويق", amount: 5000 },
-  { category: "أخرى", amount: 2000 },
-];
-
-// Top clients
-const topClients = [
-  { id: 'C1001', name: 'سارة أحمد', totalOrders: 5, totalSpent: 12500, lastVisit: '2023-05-15' },
-  { id: 'C1002', name: 'نور محمد', totalOrders: 4, totalSpent: 9800, lastVisit: '2023-05-10' },
-  { id: 'C1003', name: 'فاطمة علي', totalOrders: 3, totalSpent: 7500, lastVisit: '2023-04-25' },
-  { id: 'C1005', name: 'مريم محمود', totalOrders: 3, totalSpent: 6800, lastVisit: '2023-05-05' },
-  { id: 'C1008', name: 'هدى سامي', totalOrders: 2, totalSpent: 5500, lastVisit: '2023-04-20' },
-];
-
-// Upcoming appointments (within 72 hours)
-const upcomingAppointments = [
-  { 
-    id: 'APP1001', 
-    clientId: 'C1001', 
-    clientName: 'سارة أحمد',
-    clientPhone: '01012345678', 
-    date: '2023-05-25T10:00:00', 
-    service: 'ميكب زفاف + فستان',
-    notificationSent: true,
-  },
-  { 
-    id: 'APP1002', 
-    clientId: 'C1002', 
-    clientName: 'نور محمد',
-    clientPhone: '01112345678', 
-    date: '2023-05-26T14:30:00', 
-    service: 'ميكب سواريه',
-    notificationSent: false,
-  },
-  { 
-    id: 'APP1003', 
-    clientId: 'C1003', 
-    clientName: 'فاطمة علي',
-    clientPhone: '01212345678', 
-    date: '2023-05-27T12:00:00', 
-    service: 'تنظيف بشرة عميق',
-    notificationSent: false,
-  },
-];
-
-// Top selling/renting dresses
-const topDresses = [
-  { id: 'D101', name: 'فستان زفاف ساتان', type: 'wedding', rentCount: 8, revenue: 16000 },
-  { id: 'D103', name: 'فستان خطوبة', type: 'engagement', rentCount: 6, revenue: 7200 },
-  { id: 'D104', name: 'فستان سواريه', type: 'evening', rentCount: 5, revenue: 4000 },
-  { id: 'D107', name: 'فستان كتب كتاب', type: 'engagement', rentCount: 4, revenue: 6000 },
-  { id: 'D102', name: 'فستان زفاف دانتيل', type: 'wedding', rentCount: 3, revenue: 7500 },
-];
+import { toast } from '@/components/ui/sonner';
+import { 
+  ReportService, 
+  RevenueReport, 
+  StaffCommission, 
+  ClientUpcomingEvent,
+  MonthlyRevenue 
+} from '@/services/ReportService';
+import { useQuery } from '@tanstack/react-query';
+import { InventoryService } from '@/services/InventoryService';
 
 const ReportsPage = () => {
-  const [selectedYear, setSelectedYear] = useState('2023');
-  const [selectedMonth, setSelectedMonth] = useState('5'); // May
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+  
+  const [selectedYear, setSelectedYear] = useState(currentYear.toString());
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth.toString());
+  
+  // Get monthly revenue data
+  const { data: monthlyRevenueData } = useQuery({
+    queryKey: ['monthlyRevenueData', selectedYear],
+    queryFn: () => ReportService.getMonthlyRevenueData(parseInt(selectedYear)),
+    meta: {
+      onError: (error: Error) => {
+        console.error('Error fetching monthly revenue data:', error);
+        toast.error('فشل في تحميل بيانات الإيرادات الشهرية');
+      }
+    }
+  });
+  
+  // Get monthly revenue report
+  const { data: monthlyRevenue } = useQuery({
+    queryKey: ['monthlyRevenue', selectedYear, selectedMonth],
+    queryFn: () => ReportService.getMonthlyRevenue(parseInt(selectedYear), parseInt(selectedMonth)),
+    meta: {
+      onError: (error: Error) => {
+        console.error('Error fetching monthly revenue report:', error);
+        toast.error('فشل في تحميل تقرير الإيرادات الشهري');
+      }
+    }
+  });
+  
+  // Get staff commissions
+  const { data: staffCommissions } = useQuery({
+    queryKey: ['staffCommissions', selectedYear, selectedMonth],
+    queryFn: () => ReportService.getStaffCommissions(parseInt(selectedYear), parseInt(selectedMonth)),
+    meta: {
+      onError: (error: Error) => {
+        console.error('Error fetching staff commissions:', error);
+        toast.error('فشل في تحميل عمولات الموظفين');
+      }
+    }
+  });
+  
+  // Get upcoming client events
+  const { data: upcomingEvents } = useQuery({
+    queryKey: ['upcomingEvents'],
+    queryFn: () => ReportService.getUpcomingClientEvents(72),
+    refetchInterval: 1000 * 60 * 5, // Refetch every 5 minutes
+    meta: {
+      onError: (error: Error) => {
+        console.error('Error fetching upcoming events:', error);
+        toast.error('فشل في تحميل المواعيد القادمة');
+      }
+    }
+  });
+  
+  // Get top referrers
+  const { data: topReferrers } = useQuery({
+    queryKey: ['topReferrers'],
+    queryFn: () => ReportService.getTopReferrers(5),
+    meta: {
+      onError: (error: Error) => {
+        console.error('Error fetching top referrers:', error);
+        toast.error('فشل في تحميل قائمة أفضل المحيلين');
+      }
+    }
+  });
+  
+  // Get inventory summary
+  const { data: inventorySummary } = useQuery({
+    queryKey: ['inventorySummary'],
+    queryFn: () => ReportService.getInventorySummary(),
+    meta: {
+      onError: (error: Error) => {
+        console.error('Error fetching inventory summary:', error);
+        toast.error('فشل في تحميل ملخص المخزون');
+      }
+    }
+  });
+  
+  // Get top dresses
+  const { data: topDresses } = useQuery({
+    queryKey: ['topDresses'],
+    queryFn: () => ReportService.getTopDresses(5),
+    meta: {
+      onError: (error: Error) => {
+        console.error('Error fetching top dresses:', error);
+        toast.error('فشل في تحميل قائمة أفضل الفساتين');
+      }
+    }
+  });
   
   // Send WhatsApp notification
-  const sendNotification = (appointment: any) => {
-    console.log(`Sending notification to ${appointment.clientName} at ${appointment.clientPhone}`);
+  const sendNotification = (appointment: ClientUpcomingEvent) => {
     // In a real app, this would use an API to send a WhatsApp message
-    alert(`تم إرسال رسالة تذكيرية إلى ${appointment.clientName}`);
-    
-    // Update the appointment's notification status
-    appointment.notificationSent = true;
+    toast.success(`تم إرسال رسالة تذكيرية إلى ${appointment.client_name}`);
   };
   
   // Format date and time
@@ -147,6 +160,9 @@ const ReportsPage = () => {
     if (diffDays === 2) return 'بعد غد';
     return `بعد ${diffDays} أيام`;
   };
+  
+  // Month names in Arabic
+  const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 
   return (
     <div className="space-y-8">
@@ -176,9 +192,9 @@ const ReportsPage = () => {
                   <SelectValue placeholder="اختر السنة" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2022">2022</SelectItem>
-                  <SelectItem value="2023">2023</SelectItem>
-                  <SelectItem value="2024">2024</SelectItem>
+                  <SelectItem value={(currentYear - 1).toString()}>{currentYear - 1}</SelectItem>
+                  <SelectItem value={currentYear.toString()}>{currentYear}</SelectItem>
+                  <SelectItem value={(currentYear + 1).toString()}>{currentYear + 1}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -210,7 +226,9 @@ const ReportsPage = () => {
                 <CardDescription>{monthNames[parseInt(selectedMonth) - 1]} {selectedYear}</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-4xl font-bold">165,000 ج.م</div>
+                <div className="text-4xl font-bold">
+                  {monthlyRevenue ? (monthlyRevenue.booking + monthlyRevenue.completion).toLocaleString() : 0} ج.م
+                </div>
               </CardContent>
             </Card>
             
@@ -220,7 +238,9 @@ const ReportsPage = () => {
                 <CardDescription>{monthNames[parseInt(selectedMonth) - 1]} {selectedYear}</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-4xl font-bold">46,000 ج.م</div>
+                <div className="text-4xl font-bold">
+                  {monthlyRevenue ? monthlyRevenue.expenses.toLocaleString() : 0} ج.م
+                </div>
               </CardContent>
             </Card>
             
@@ -230,7 +250,9 @@ const ReportsPage = () => {
                 <CardDescription>{monthNames[parseInt(selectedMonth) - 1]} {selectedYear}</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-4xl font-bold text-green-600">119,000 ج.م</div>
+                <div className="text-4xl font-bold text-green-600">
+                  {monthlyRevenue ? monthlyRevenue.net.toLocaleString() : 0} ج.م
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -242,7 +264,14 @@ const ReportsPage = () => {
             </CardHeader>
             <CardContent className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={revenueData}>
+                <BarChart data={[
+                  { category: "ميكب زفاف", amount: monthlyRevenue ? monthlyRevenue.booking * 0.4 : 0 },
+                  { category: "ميكب مناسبات", amount: monthlyRevenue ? monthlyRevenue.booking * 0.2 : 0 },
+                  { category: "ميكب سواريه", amount: monthlyRevenue ? monthlyRevenue.booking * 0.1 : 0 },
+                  { category: "تنظيف بشرة", amount: monthlyRevenue ? monthlyRevenue.booking * 0.1 : 0 },
+                  { category: "إيجار فساتين", amount: monthlyRevenue ? monthlyRevenue.completion * 0.6 : 0 },
+                  { category: "بيع فساتين", amount: monthlyRevenue ? monthlyRevenue.completion * 0.4 : 0 },
+                ]}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                   <XAxis dataKey="category" />
                   <YAxis />
@@ -272,7 +301,7 @@ const ReportsPage = () => {
             </CardHeader>
             <CardContent className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyData}>
+                <BarChart data={monthlyRevenueData || []}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                   <XAxis dataKey="month" />
                   <YAxis />
@@ -306,9 +335,9 @@ const ReportsPage = () => {
                   <SelectValue placeholder="اختر السنة" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2022">2022</SelectItem>
-                  <SelectItem value="2023">2023</SelectItem>
-                  <SelectItem value="2024">2024</SelectItem>
+                  <SelectItem value={(currentYear - 1).toString()}>{currentYear - 1}</SelectItem>
+                  <SelectItem value={currentYear.toString()}>{currentYear}</SelectItem>
+                  <SelectItem value={(currentYear + 1).toString()}>{currentYear + 1}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -340,7 +369,14 @@ const ReportsPage = () => {
             </CardHeader>
             <CardContent className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={expensesData}>
+                <BarChart data={[
+                  { category: "مرتبات", amount: 18000 },
+                  { category: "إيجار", amount: 10000 },
+                  { category: "مواد خام", amount: 8000 },
+                  { category: "مرافق", amount: 3000 },
+                  { category: "تسويق", amount: 5000 },
+                  { category: "أخرى", amount: 2000 },
+                ]}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                   <XAxis dataKey="category" />
                   <YAxis />
@@ -378,8 +414,15 @@ const ReportsPage = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {expensesData.map((expense, index) => {
-                    const totalExpenses = expensesData.reduce((acc, curr) => acc + curr.amount, 0);
+                  {[
+                    { category: "مرتبات", amount: 18000 },
+                    { category: "إيجار", amount: 10000 },
+                    { category: "مواد خام", amount: 8000 },
+                    { category: "مرافق", amount: 3000 },
+                    { category: "تسويق", amount: 5000 },
+                    { category: "أخرى", amount: 2000 },
+                  ].map((expense, index) => {
+                    const totalExpenses = 46000;
                     const percentage = ((expense.amount / totalExpenses) * 100).toFixed(1);
                     
                     return (
@@ -400,30 +443,36 @@ const ReportsPage = () => {
         <TabsContent value="clients" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>أكثر العملاء إنفاقًا</CardTitle>
+              <CardTitle>أفضل العملاء</CardTitle>
               <CardDescription>العملاء الأكثر إنفاقًا خلال الفترة الماضية</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>كود العميل</TableHead>
                     <TableHead>الاسم</TableHead>
-                    <TableHead>عدد الطلبات</TableHead>
-                    <TableHead>إجمالي الإنفاق</TableHead>
-                    <TableHead>آخر زيارة</TableHead>
+                    <TableHead>رقم الهاتف</TableHead>
+                    <TableHead>عدد الإحالات</TableHead>
+                    <TableHead>إجمالي الخصم</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {topClients.map((client) => (
-                    <TableRow key={client.id}>
-                      <TableCell>{client.id}</TableCell>
-                      <TableCell>{client.name}</TableCell>
-                      <TableCell>{client.totalOrders}</TableCell>
-                      <TableCell>{client.totalSpent} ج.م</TableCell>
-                      <TableCell>{new Date(client.lastVisit).toLocaleDateString('ar-EG')}</TableCell>
+                  {topReferrers && topReferrers.length > 0 ? (
+                    topReferrers.map((referrer, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{referrer.client_name}</TableCell>
+                        <TableCell>{referrer.client_phone}</TableCell>
+                        <TableCell>{referrer.referrals_count}</TableCell>
+                        <TableCell>{referrer.total_discount} ج.م</TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-6">
+                        لا يوجد بيانات متاحة
+                      </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -530,53 +579,40 @@ const ReportsPage = () => {
                     <TableHead>الموعد</TableHead>
                     <TableHead>متى؟</TableHead>
                     <TableHead>الخدمة</TableHead>
-                    <TableHead>الحالة</TableHead>
                     <TableHead>إجراءات</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {upcomingAppointments.map((appointment) => (
-                    <TableRow key={appointment.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{appointment.clientName}</div>
-                          <div className="text-sm text-muted-foreground">{appointment.clientPhone}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{formatDateTime(appointment.date)}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
-                          {getDayDifference(appointment.date)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{appointment.service}</TableCell>
-                      <TableCell>
-                        {appointment.notificationSent ? (
-                          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
-                            تم الإرسال
+                  {upcomingEvents && upcomingEvents.length > 0 ? (
+                    upcomingEvents.map((event, index) => (
+                      <TableRow key={index}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{event.client_name}</div>
+                            <div className="text-sm text-muted-foreground">{event.client_phone}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{formatDateTime(event.event_date)}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
+                            {getDayDifference(event.event_date)}
                           </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200">
-                            في الانتظار
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Button 
-                          size="sm" 
-                          variant={appointment.notificationSent ? "outline" : "default"}
-                          disabled={appointment.notificationSent}
-                          className={!appointment.notificationSent ? "bg-bloom-primary" : ""}
-                          onClick={() => sendNotification(appointment)}
-                        >
-                          إرسال تذكير
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {upcomingAppointments.length === 0 && (
+                        </TableCell>
+                        <TableCell>{event.event_type}</TableCell>
+                        <TableCell>
+                          <Button 
+                            size="sm" 
+                            className="bg-bloom-primary hover:bg-bloom-primary/90"
+                            onClick={() => sendNotification(event)}
+                          >
+                            إرسال تذكير
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-6">
+                      <TableCell colSpan={5} className="text-center py-6">
                         لا يوجد مواعيد قادمة خلال 72 ساعة
                       </TableCell>
                     </TableRow>
@@ -595,7 +631,7 @@ const ReportsPage = () => {
                 <CardTitle className="text-lg">إجمالي الفساتين</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">120</p>
+                <p className="text-3xl font-bold">{inventorySummary?.total || 0}</p>
               </CardContent>
             </Card>
             
@@ -604,7 +640,7 @@ const ReportsPage = () => {
                 <CardTitle className="text-lg">متاح</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">80</p>
+                <p className="text-3xl font-bold">{inventorySummary?.available || 0}</p>
               </CardContent>
             </Card>
             
@@ -613,7 +649,7 @@ const ReportsPage = () => {
                 <CardTitle className="text-lg">مؤجر</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">25</p>
+                <p className="text-3xl font-bold">{inventorySummary?.rented || 0}</p>
               </CardContent>
             </Card>
             
@@ -622,7 +658,7 @@ const ReportsPage = () => {
                 <CardTitle className="text-lg">صيانة</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">15</p>
+                <p className="text-3xl font-bold">{inventorySummary?.maintenance || 0}</p>
               </CardContent>
             </Card>
           </div>
@@ -636,7 +672,6 @@ const ReportsPage = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>كود</TableHead>
                     <TableHead>اسم الفستان</TableHead>
                     <TableHead>النوع</TableHead>
                     <TableHead>عدد مرات التأجير</TableHead>
@@ -644,24 +679,31 @@ const ReportsPage = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {topDresses.map((dress) => (
-                    <TableRow key={dress.id}>
-                      <TableCell>{dress.id}</TableCell>
-                      <TableCell>{dress.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={
-                          dress.type === 'wedding' ? 'bg-purple-100 text-purple-800 border-purple-200' :
-                          dress.type === 'engagement' ? 'bg-pink-100 text-pink-800 border-pink-200' :
-                          'bg-blue-100 text-blue-800 border-blue-200'
-                        }>
-                          {dress.type === 'wedding' ? 'زفاف' :
-                           dress.type === 'engagement' ? 'خطوبة' : 'سواريه'}
-                        </Badge>
+                  {topDresses && topDresses.length > 0 ? (
+                    topDresses.map((dress, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{dress.name}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={
+                            dress.type === 'wedding' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                            dress.type === 'engagement' ? 'bg-pink-100 text-pink-800 border-pink-200' :
+                            'bg-blue-100 text-blue-800 border-blue-200'
+                          }>
+                            {dress.type === 'wedding' ? 'زفاف' :
+                             dress.type === 'engagement' ? 'خطوبة' : 'سواريه'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{dress.rentCount}</TableCell>
+                        <TableCell>{dress.revenue} ج.م</TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-6">
+                        لا يوجد بيانات متاحة
                       </TableCell>
-                      <TableCell>{dress.rentCount}</TableCell>
-                      <TableCell>{dress.revenue} ج.م</TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -675,10 +717,11 @@ const ReportsPage = () => {
             <CardContent className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={[
-                  { category: "فساتين زفاف", count: 45 },
-                  { category: "فساتين خطوبة", count: 30 },
-                  { category: "فساتين سواريه", count: 25 },
-                  { category: "فساتين كتب كتاب", count: 20 },
+                  { category: "فساتين زفاف", count: inventorySummary?.total ? Math.round(inventorySummary.total * 0.35) : 0 },
+                  { category: "فساتين خطوبة", count: inventorySummary?.total ? Math.round(inventorySummary.total * 0.25) : 0 },
+                  { category: "فساتين سواريه", count: inventorySummary?.total ? Math.round(inventorySummary.total * 0.2) : 0 },
+                  { category: "فساتين كتب كتاب", count: inventorySummary?.total ? Math.round(inventorySummary.total * 0.15) : 0 },
+                  { category: "أخرى", count: inventorySummary?.total ? Math.round(inventorySummary.total * 0.05) : 0 },
                 ]}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                   <XAxis dataKey="category" />

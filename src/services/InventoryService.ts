@@ -163,29 +163,72 @@ export const InventoryService = {
     total: number;
     available: number;
     rented: number;
+    maintenance: number;
   }> {
     try {
       const { data, error } = await supabase
         .from('dresses')
-        .select('is_available');
+        .select('is_available, condition');
       
       if (error) throw error;
       
       if (!data) {
-        return { total: 0, available: 0, rented: 0 };
+        return { total: 0, available: 0, rented: 0, maintenance: 0 };
       }
       
       const total = data.length;
-      const available = data.filter(dress => dress.is_available).length;
+      const available = data.filter(dress => dress.is_available && dress.condition !== 'maintenance').length;
+      const maintenance = data.filter(dress => dress.condition === 'maintenance').length;
+      const rented = total - available - maintenance;
       
       return {
         total,
         available,
-        rented: total - available
+        rented,
+        maintenance
       };
     } catch (error) {
       console.error('Error generating inventory report:', error);
-      return { total: 0, available: 0, rented: 0 };
+      return { total: 0, available: 0, rented: 0, maintenance: 0 };
+    }
+  },
+  
+  async sendDressToMaintenance(dressId: string, notes: string): Promise<boolean> {
+    try {
+      // Update the dress status
+      const { error } = await supabase
+        .from('dresses')
+        .update({
+          is_available: false,
+          condition: 'maintenance',
+          description: notes
+        })
+        .eq('id', dressId);
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error(`Error sending dress ${dressId} to maintenance:`, error);
+      return false; 
+    }
+  },
+  
+  async returnDressFromMaintenance(dressId: string): Promise<boolean> {
+    try {
+      // Update the dress status
+      const { error } = await supabase
+        .from('dresses')
+        .update({
+          is_available: true,
+          condition: 'good'
+        })
+        .eq('id', dressId);
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error(`Error returning dress ${dressId} from maintenance:`, error);
+      return false; 
     }
   }
 };
