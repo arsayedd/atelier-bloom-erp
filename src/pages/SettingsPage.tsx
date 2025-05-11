@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -168,12 +167,13 @@ const SettingsPage = () => {
       
       settings.forEach(setting => {
         if (setting.key in settingsObj) {
+          const key = setting.key as keyof typeof settingsObj;
           if (setting.type === 'boolean') {
-            settingsObj[setting.key as keyof typeof settingsObj] = setting.value === 'true';
+            settingsObj[key] = setting.value === 'true' as any;
           } else if (setting.type === 'number') {
-            settingsObj[setting.key as keyof typeof settingsObj] = parseFloat(setting.value);
+            settingsObj[key] = parseFloat(setting.value) as any;
           } else {
-            settingsObj[setting.key as keyof typeof settingsObj] = setting.value;
+            settingsObj[key] = setting.value as any;
           }
         }
       });

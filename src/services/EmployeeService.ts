@@ -1,5 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { Json } from '@/integrations/supabase/types';
 
 export interface CommissionRates {
   newBookings: number;
@@ -36,7 +37,7 @@ export const EmployeeService = {
         role: item.role,
         phone: item.phone,
         commission_rates: typeof item.commission_rates === 'object' 
-          ? item.commission_rates as CommissionRates
+          ? item.commission_rates as unknown as CommissionRates
           : JSON.parse(item.commission_rates as string) as CommissionRates,
         active: item.active,
         created_at: item.created_at,
@@ -50,9 +51,18 @@ export const EmployeeService = {
   
   async createEmployee(employee: Omit<Employee, 'id' | 'created_at' | 'updated_at'>): Promise<string | null> {
     try {
+      // Convert the CommissionRates to Json before sending to Supabase
+      const employeeData = {
+        name: employee.name,
+        role: employee.role,
+        phone: employee.phone,
+        commission_rates: employee.commission_rates as unknown as Json,
+        active: employee.active
+      };
+
       const { data, error } = await supabase
         .from('employees')
-        .insert(employee)
+        .insert(employeeData)
         .select();
       
       if (error) throw error;
@@ -65,9 +75,15 @@ export const EmployeeService = {
   
   async updateEmployee(id: string, updates: Partial<Employee>): Promise<boolean> {
     try {
+      // Convert CommissionRates to Json if it exists in the updates
+      const updatesData: any = { ...updates };
+      if (updates.commission_rates) {
+        updatesData.commission_rates = updates.commission_rates as unknown as Json;
+      }
+
       const { error } = await supabase
         .from('employees')
-        .update(updates)
+        .update(updatesData)
         .eq('id', id);
       
       if (error) throw error;
