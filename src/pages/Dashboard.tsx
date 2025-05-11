@@ -41,6 +41,15 @@ const Dashboard = () => {
     queryKey: ['monthlyRevenue'],
     queryFn: DashboardService.getMonthlyRevenue
   });
+
+  // Fetch dashboard summary data
+  const {
+    data: dashboardSummary,
+    isLoading: isLoadingSummary
+  } = useQuery({
+    queryKey: ['dashboardSummary'],
+    queryFn: DashboardService.getDashboardSummary
+  });
   
   return (
     <div className="space-y-6">
@@ -65,8 +74,20 @@ const Dashboard = () => {
                 <CardDescription>إجمالي عدد العملاء المسجلين</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">152</div>
-                <div className="text-xs text-muted-foreground mt-1">+12% من الشهر الماضي</div>
+                {isLoadingSummary ? (
+                  <div className="animate-pulse h-6 w-16 bg-muted rounded"></div>
+                ) : (
+                  <>
+                    <div className="text-3xl font-bold">{dashboardSummary?.clientsCount || 0}</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {dashboardSummary?.clientsGrowthPercentage > 0 ? (
+                        `+${dashboardSummary?.clientsGrowthPercentage}% من الشهر الماضي`
+                      ) : (
+                        `${dashboardSummary?.clientsGrowthPercentage}% من الشهر الماضي`
+                      )}
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -75,8 +96,20 @@ const Dashboard = () => {
                 <CardDescription>إجمالي الطلبات هذا الشهر</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">24</div>
-                <div className="text-xs text-muted-foreground mt-1">+5% من الشهر الماضي</div>
+                {isLoadingSummary ? (
+                  <div className="animate-pulse h-6 w-16 bg-muted rounded"></div>
+                ) : (
+                  <>
+                    <div className="text-3xl font-bold">{dashboardSummary?.monthlyOrdersCount || 0}</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {dashboardSummary?.ordersGrowthPercentage > 0 ? (
+                        `+${dashboardSummary?.ordersGrowthPercentage}% من الشهر الماضي`
+                      ) : (
+                        `${dashboardSummary?.ordersGrowthPercentage}% من الشهر الماضي`
+                      )}
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -85,8 +118,24 @@ const Dashboard = () => {
                 <CardDescription>إجمالي الإيرادات هذا الشهر</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">32,500 ج.م</div>
-                <div className="text-xs text-muted-foreground mt-1">+18% من الشهر الماضي</div>
+                {isLoadingSummary ? (
+                  <div className="animate-pulse h-6 w-16 bg-muted rounded"></div>
+                ) : (
+                  <>
+                    <div className="text-3xl font-bold">
+                      {dashboardSummary?.monthlyRevenue ? 
+                        `${dashboardSummary.monthlyRevenue.toLocaleString('ar-EG')} ج.م` : 
+                        '0 ج.م'}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {dashboardSummary?.revenueGrowthPercentage > 0 ? (
+                        `+${dashboardSummary?.revenueGrowthPercentage}% من الشهر الماضي`
+                      ) : (
+                        `${dashboardSummary?.revenueGrowthPercentage}% من الشهر الماضي`
+                      )}
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
