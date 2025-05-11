@@ -1,17 +1,19 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
+export interface CommissionRates {
+  newBookings: number;
+  additions: number;
+  cleaning: number;
+  outdoor: number;
+}
+
 export interface Employee {
   id: string;
   name: string;
   role: string;
   phone: string;
-  commission_rates: {
-    newBookings: number;
-    additions: number;
-    cleaning: number;
-    outdoor: number;
-  };
+  commission_rates: CommissionRates;
   active: boolean;
   created_at?: string;
   updated_at?: string;
@@ -26,7 +28,20 @@ export const EmployeeService = {
         .order('name');
       
       if (error) throw error;
-      return data || [];
+      
+      // Properly parse the JSON field and cast to our expected type
+      return (data || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        role: item.role,
+        phone: item.phone,
+        commission_rates: typeof item.commission_rates === 'object' 
+          ? item.commission_rates as CommissionRates
+          : JSON.parse(item.commission_rates as string) as CommissionRates,
+        active: item.active,
+        created_at: item.created_at,
+        updated_at: item.updated_at
+      }));
     } catch (error) {
       console.error('Error fetching employees:', error);
       return [];

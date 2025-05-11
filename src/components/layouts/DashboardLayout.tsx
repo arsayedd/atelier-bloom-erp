@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -90,7 +91,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       {!isMobile && (
         <aside className="w-64 p-4 bg-white border-r overflow-y-auto">
           <div className="flex items-center justify-center mb-6">
-            <h1 className="text-2xl font-bold text-bloom-primary">Atelier Bloom</h1>
+            <img src="https://i.postimg.cc/KYZC1TC0/Heba-ouf-NB-1.png" alt="Hebaouf Logo" className="h-12 object-contain" />
           </div>
           {renderNavItems()}
           <div className="mt-auto pt-6">
@@ -130,7 +131,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                 </SheetTrigger>
                 <SheetContent side="right" className="p-0">
                   <div className="p-4">
-                    <h1 className="text-2xl font-bold text-bloom-primary text-center mb-6">Atelier Bloom</h1>
+                    <div className="flex justify-center mb-6">
+                      <img src="https://i.postimg.cc/KYZC1TC0/Heba-ouf-NB-1.png" alt="Hebaouf Logo" className="h-12 object-contain" />
+                    </div>
                     {renderNavItems()}
                     <Separator className="my-4" />
                     <div className="flex items-center gap-3 px-3 py-2">
@@ -153,7 +156,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                   </div>
                 </SheetContent>
               </Sheet>
-              <h1 className="text-xl font-bold text-bloom-primary">Atelier Bloom</h1>
+              <div className="flex items-center justify-center">
+                <img src="https://i.postimg.cc/KYZC1TC0/Heba-ouf-NB-1.png" alt="Hebaouf Logo" className="h-8 object-contain" />
+              </div>
               <div className="w-9"> {/* Empty div for balance */}</div>
             </div>
           </div>

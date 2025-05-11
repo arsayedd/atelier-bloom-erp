@@ -17,7 +17,15 @@ export const SystemSettingsService = {
         .select('*');
       
       if (error) throw error;
-      return data || [];
+      
+      // Make sure to cast the database type to our interface type
+      return (data || []).map(item => ({
+        id: item.id,
+        key: item.key,
+        value: item.value,
+        type: item.type as 'string' | 'number' | 'boolean',
+        updated_at: item.updated_at
+      }));
     } catch (error) {
       console.error('Error fetching settings:', error);
       return [];
@@ -28,7 +36,10 @@ export const SystemSettingsService = {
     try {
       const { error } = await supabase
         .from('system_settings')
-        .update({ value, updated_at: new Date().toISOString() })
+        .update({ 
+          value: value, 
+          updated_at: new Date().toISOString() 
+        })
         .eq('key', key);
       
       if (error) throw error;
@@ -45,7 +56,10 @@ export const SystemSettingsService = {
       const updates = settings.map(setting => 
         supabase
           .from('system_settings')
-          .update({ value, updated_at: new Date().toISOString() })
+          .update({ 
+            value: setting.value, 
+            updated_at: new Date().toISOString() 
+          })
           .eq('key', setting.key)
       );
       

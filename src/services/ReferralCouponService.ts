@@ -24,7 +24,21 @@ export const ReferralCouponService = {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data || [];
+      
+      // Ensure proper type casting for the enum-like fields
+      return (data || []).map(item => ({
+        id: item.id,
+        code: item.code,
+        amount: item.amount,
+        type: item.type as 'fixed' | 'percentage',
+        valid_until: item.valid_until,
+        issued_to: item.issued_to,
+        client_id: item.client_id,
+        status: item.status as 'active' | 'inactive',
+        usage_count: item.usage_count,
+        created_at: item.created_at,
+        updated_at: item.updated_at
+      }));
     } catch (error) {
       console.error('Error fetching coupons:', error);
       return [];
