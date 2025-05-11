@@ -16,6 +16,7 @@ import { Order } from '@/services/OrderService';
 import { orderCategories } from '@/services/OrderService';
 import { ClientService } from '@/services/ClientService';
 import { toast } from '@/components/ui/sonner';
+import { InventoryService } from '@/services/InventoryService';
 
 interface Client {
   id: string;
@@ -60,6 +61,18 @@ const OrderForm: React.FC<OrderFormProps> = ({ selectedOrder, onSave, onCancel }
       }
     }
   });
+  
+  // Fetch available dresses for atelier orders
+  const { data: dresses, isLoading: isLoadingDresses } = useQuery({
+    queryKey: ['available-dresses'],
+    queryFn: () => InventoryService.getDresses(true),
+    enabled: formData.type === 'atelier',
+    meta: {
+      onError: () => {
+        toast.error('فشل في تحميل بيانات الفساتين');
+      }
+    }
+  });
 
   // Effect to initialize form when selectedOrder changes
   useEffect(() => {
@@ -90,7 +103,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ selectedOrder, onSave, onCancel }
     
     // Update available subtypes
     const categoryTypes = Object.keys(orderCategories).includes(value) 
-      ? Object.values(orderCategories[value as keyof typeof orderCategories].types).map(type => ({
+      ? orderCategories[value as keyof typeof orderCategories].types.map(type => ({
           value: type.id,
           label: type.name
         }))
@@ -104,9 +117,23 @@ const OrderForm: React.FC<OrderFormProps> = ({ selectedOrder, onSave, onCancel }
   const handleSubtypeChange = (value: string) => {
     setFormData({...formData, subtype: value, specifics: ''});
     
-    // In a real implementation, you would get specific options based on subtype
-    // For now, just using empty array as placeholder
-    setAvailableSpecifics([]);
+    // For atelier orders, set available dresses as specifics
+    if (formData.type === 'atelier' && dresses) {
+      // Filter dresses based on subtype (wedding, engagement, etc.)
+      const dressCategory = value.split('_')[0]; // Get the first part, e.g., "wedding" from "wedding_rent"
+      
+      const filteredDresses = dresses.filter(dress => dress.category === dressCategory);
+      
+      const dressOptions = filteredDresses.map(dress => ({
+        value: dress.id,
+        label: `${dress.name} - ${dress.size || 'بدون مقاس'} - ${dress.color || 'بدون لون'}`
+      }));
+      
+      setAvailableSpecifics(dressOptions);
+    } else {
+      // For other orders, specifics might be predefined or empty
+      setAvailableSpecifics([]);
+    }
   };
   
   // Handle client change
@@ -264,11 +291,17 @@ const OrderForm: React.FC<OrderFormProps> = ({ selectedOrder, onSave, onCancel }
               <SelectValue placeholder="اختر التفاصيل" />
             </SelectTrigger>
             <SelectContent>
-              {availableSpecifics.map((specific) => (
-                <SelectItem key={specific.value} value={specific.value}>
-                  {specific.label}
-                </SelectItem>
-              ))}
+              {isLoadingDresses && formData.type === 'atelier' ? (
+                <SelectItem value="loading" disabled>جاري تحميل الفساتين...</SelectItem>
+              ) : availableSpecifics.length > 0 ? (
+                availableSpecifics.map((specific) => (
+                  <SelectItem key={specific.value} value={specific.value}>
+                    {specific.label}
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem value="no-specifics" disabled>لا توجد خيارات متاحة</SelectItem>
+              )}
             </SelectContent>
           </Select>
         </div>

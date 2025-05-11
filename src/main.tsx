@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 
-// Initialize with Hebaouf as the company name
+// Initialize with Heba Ouf as the company name
 import { supabase } from '@/integrations/supabase/client';
 const initializeSettings = async () => {
   try {
@@ -15,24 +15,24 @@ const initializeSettings = async () => {
       .single();
     
     if (data) {
-      // Update the company name to Hebaouf
+      // Update the company name to Heba Ouf
       await supabase
         .from('system_settings')
-        .update({ value: 'Hebaouf' })
+        .update({ value: 'Heba Ouf' })
         .eq('key', 'company_name');
       
-      console.log('Company name updated to Hebaouf');
+      console.log('Company name updated to Heba Ouf');
     } else {
       // Create the setting if it doesn't exist
       await supabase
         .from('system_settings')
         .insert({
           key: 'company_name',
-          value: 'Hebaouf',
+          value: 'Heba Ouf',
           type: 'string'
         });
       
-      console.log('Company name setting created as Hebaouf');
+      console.log('Company name setting created as Heba Ouf');
     }
   } catch (error) {
     console.error('Error initializing settings:', error);

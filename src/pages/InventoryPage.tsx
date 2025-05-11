@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -33,119 +33,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
 import { Search, Plus, Pencil, Trash2, History, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-
-// Mock data for dresses
-const mockDresses = [
-  {
-    id: 'D101',
-    name: 'فستان زفاف ساتان',
-    type: 'wedding',
-    size: '38',
-    color: 'أبيض',
-    purchasePrice: 5000,
-    rentalPrice: 2000,
-    salePrice: 8000,
-    status: 'available', // available, rented, sold, maintenance
-    location: 'المعرض الرئيسي',
-    notes: 'فستان مميز بذيل طويل',
-    history: [
-      { id: '1', date: '2023-04-15', type: 'rent', client: 'سارة أحمد', amount: 2000 },
-      { id: '2', date: '2023-03-10', type: 'rent', client: 'نور محمد', amount: 2000 },
-      { id: '3', date: '2023-01-05', type: 'maintenance', client: '', amount: 0, notes: 'تنظيف وكي' },
-    ],
-    totalRentals: 2,
-    totalRevenue: 4000,
-    lastCleaningDate: '2023-01-05',
-  },
-  {
-    id: 'D102',
-    name: 'فستان زفاف دانتيل',
-    type: 'wedding',
-    size: '40',
-    color: 'أوف وايت',
-    purchasePrice: 6000,
-    rentalPrice: 2500,
-    salePrice: 9000,
-    status: 'rented', // available, rented, sold, maintenance
-    location: 'المعرض الرئيسي',
-    notes: 'فستان بأكمام طويلة',
-    history: [
-      { id: '1', date: '2023-05-20', type: 'rent', client: 'فاطمة علي', amount: 2500 },
-    ],
-    totalRentals: 1,
-    totalRevenue: 2500,
-    lastCleaningDate: '2023-04-10',
-  },
-  {
-    id: 'D103',
-    name: 'فستان خطوبة',
-    type: 'engagement',
-    size: '36',
-    color: 'وردي',
-    purchasePrice: 3500,
-    rentalPrice: 1200,
-    salePrice: 5500,
-    status: 'available', // available, rented, sold, maintenance
-    location: 'المعرض الفرعي',
-    notes: '',
-    history: [
-      { id: '1', date: '2023-04-02', type: 'rent', client: 'مريم محمود', amount: 1200 },
-      { id: '2', date: '2023-02-15', type: 'rent', client: 'هدى سامي', amount: 1200 },
-      { id: '3', date: '2023-01-20', type: 'maintenance', client: '', amount: 0, notes: 'تنظيف وإصلاح سحاب' },
-    ],
-    totalRentals: 2,
-    totalRevenue: 2400,
-    lastCleaningDate: '2023-01-20',
-  },
-  {
-    id: 'D104',
-    name: 'فستان سواريه',
-    type: 'evening',
-    size: '38',
-    color: 'أسود',
-    purchasePrice: 2800,
-    rentalPrice: 800,
-    salePrice: 4500,
-    status: 'maintenance', // available, rented, sold, maintenance
-    location: 'المغسلة',
-    notes: 'تم إرساله للتنظيف',
-    history: [
-      { id: '1', date: '2023-05-10', type: 'maintenance', client: '', amount: 0, notes: 'تنظيف' },
-      { id: '2', date: '2023-05-05', type: 'rent', client: 'رنا أحمد', amount: 800 },
-      { id: '3', date: '2023-04-20', type: 'rent', client: 'سلمى محمد', amount: 800 },
-    ],
-    totalRentals: 2,
-    totalRevenue: 1600,
-    lastCleaningDate: '2023-05-10',
-  },
-  {
-    id: 'D105',
-    name: 'فستان كتب كتاب',
-    type: 'engagement',
-    size: '42',
-    color: 'أزرق فاتح',
-    purchasePrice: 4000,
-    rentalPrice: 1500,
-    salePrice: 6500,
-    status: 'sold', // available, rented, sold, maintenance
-    location: 'غير متاح',
-    notes: 'تم بيعه',
-    history: [
-      { id: '1', date: '2023-03-15', type: 'sale', client: 'داليا محمود', amount: 6500 },
-    ],
-    totalRentals: 0,
-    totalRevenue: 6500,
-    lastCleaningDate: '2023-02-20',
-  },
-];
+import { toast } from '@/components/ui/sonner';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { InventoryService, Dress } from '@/services/InventoryService';
 
 // Dress types
 const dressTypes = [
@@ -176,31 +68,36 @@ const dressLocations = [
 ];
 
 const InventoryPage = () => {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [dresses, setDresses] = useState(mockDresses);
   const [isAddDressOpen, setIsAddDressOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
-  const [selectedDress, setSelectedDress] = useState<any>(null);
+  const [selectedDress, setSelectedDress] = useState<Dress | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   
+  // Fetch dresses from database
+  const { data: dresses = [], isLoading } = useQuery({
+    queryKey: ['dresses'],
+    queryFn: () => InventoryService.getDresses(),
+    meta: {
+      onError: () => {
+        toast.error('فشل في تحميل بيانات الفساتين');
+      }
+    }
+  });
+  
   // Form state for new dress
-  const [newDress, setNewDress] = useState({
-    id: '',
+  const [newDress, setNewDress] = useState<Partial<Dress>>({
     name: '',
-    type: '',
+    category: '',
     size: '',
     color: '',
-    purchasePrice: 0,
-    rentalPrice: 0,
-    salePrice: 0,
-    status: 'available',
-    location: 'المعرض الرئيسي',
-    notes: '',
-    history: [],
-    totalRentals: 0,
-    totalRevenue: 0,
-    lastCleaningDate: '',
+    rental_price: 0,
+    sale_price: 0,
+    is_available: true,
+    condition: 'good',
+    description: ''
   });
   
   // Form state for maintenance entry
@@ -210,6 +107,64 @@ const InventoryPage = () => {
     cost: 0,
   });
   
+  // Mutations for CRUD operations
+  const createDressMutation = useMutation({
+    mutationFn: (dress: Omit<Dress, 'id' | 'created_at' | 'updated_at'>) => 
+      InventoryService.createDress(dress),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dresses'] });
+      setIsAddDressOpen(false);
+      toast.success('تم إضافة الفستان بنجاح');
+      resetDressForm();
+    },
+    onError: () => {
+      toast.error('فشل في إضافة الفستان');
+    }
+  });
+  
+  const updateDressMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string, updates: Partial<Dress> }) => 
+      InventoryService.updateDress(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dresses'] });
+      setIsAddDressOpen(false);
+      toast.success('تم تحديث الفستان بنجاح');
+      resetDressForm();
+    },
+    onError: () => {
+      toast.error('فشل في تحديث الفستان');
+    }
+  });
+  
+  const deleteDressMutation = useMutation({
+    mutationFn: (id: string) => InventoryService.deleteDress(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dresses'] });
+      toast.success('تم حذف الفستان بنجاح');
+    },
+    onError: () => {
+      toast.error('فشل في حذف الفستان');
+    }
+  });
+  
+  const maintenanceMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string, notes: string }) => 
+      InventoryService.sendDressToMaintenance(id, notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dresses'] });
+      setIsMaintenanceOpen(false);
+      toast.success('تم إرسال الفستان للصيانة');
+      setMaintenanceForm({
+        date: new Date().toISOString().split('T')[0],
+        notes: '',
+        cost: 0,
+      });
+    },
+    onError: () => {
+      toast.error('فشل في إرسال الفستان للصيانة');
+    }
+  });
+
   // Filter dresses based on search term and active tab
   const filteredDresses = dresses.filter(dress => {
     const matchesSearch = 
@@ -218,10 +173,10 @@ const InventoryPage = () => {
     
     const matchesTab = 
       activeTab === 'all' || 
-      (activeTab === 'available' && dress.status === 'available') ||
-      (activeTab === 'rented' && dress.status === 'rented') ||
-      (activeTab === 'maintenance' && dress.status === 'maintenance') ||
-      (activeTab === 'sold' && dress.status === 'sold');
+      (activeTab === 'available' && dress.is_available && dress.condition !== 'maintenance') ||
+      (activeTab === 'rented' && !dress.is_available && dress.condition !== 'maintenance') ||
+      (activeTab === 'maintenance' && dress.condition === 'maintenance') ||
+      (activeTab === 'sold' && dress.condition === 'sold');
     
     return matchesSearch && matchesTab;
   });
@@ -229,98 +184,79 @@ const InventoryPage = () => {
   // Count dresses by status
   const countByStatus = {
     all: dresses.length,
-    available: dresses.filter(d => d.status === 'available').length,
-    rented: dresses.filter(d => d.status === 'rented').length,
-    maintenance: dresses.filter(d => d.status === 'maintenance').length,
-    sold: dresses.filter(d => d.status === 'sold').length,
+    available: dresses.filter(d => d.is_available && d.condition !== 'maintenance').length,
+    rented: dresses.filter(d => !d.is_available && d.condition !== 'maintenance' && d.condition !== 'sold').length,
+    maintenance: dresses.filter(d => d.condition === 'maintenance').length,
+    sold: dresses.filter(d => d.condition === 'sold').length,
   };
   
   // Handle add new dress
   const handleAddDress = () => {
-    // Generate a new dress ID
-    const newId = `D${101 + dresses.length}`;
-    const dressToAdd = {
-      ...newDress,
-      id: newId,
-      history: [],
-      totalRentals: 0,
-      totalRevenue: 0,
-      lastCleaningDate: '',
-    };
-    
-    setDresses([...dresses, dressToAdd]);
-    setIsAddDressOpen(false);
-    resetDressForm();
+    if (selectedDress && selectedDress.id) {
+      updateDressMutation.mutate({
+        id: selectedDress.id,
+        updates: newDress
+      });
+    } else {
+      createDressMutation.mutate(newDress as Omit<Dress, 'id' | 'created_at' | 'updated_at'>);
+    }
   };
   
   // Handle edit dress
-  const handleEditDress = (dress: any) => {
+  const handleEditDress = (dress: Dress) => {
     setSelectedDress(dress);
-    setNewDress(dress);
+    setNewDress({
+      name: dress.name,
+      category: dress.category || '',
+      size: dress.size || '',
+      color: dress.color || '',
+      condition: dress.condition || 'good',
+      rental_price: dress.rental_price,
+      sale_price: dress.sale_price || 0,
+      is_available: dress.is_available,
+      description: dress.description || ''
+    });
     setIsAddDressOpen(true);
   };
   
   // Handle delete dress
   const handleDeleteDress = (id: string) => {
-    setDresses(dresses.filter(dress => dress.id !== id));
+    if (confirm('هل أنت متأكد من حذف هذا الفستان؟')) {
+      deleteDressMutation.mutate(id);
+    }
   };
   
   // Reset dress form
   const resetDressForm = () => {
     setNewDress({
-      id: '',
       name: '',
-      type: '',
+      category: '',
       size: '',
       color: '',
-      purchasePrice: 0,
-      rentalPrice: 0,
-      salePrice: 0,
-      status: 'available',
-      location: 'المعرض الرئيسي',
-      notes: '',
-      history: [],
-      totalRentals: 0,
-      totalRevenue: 0,
-      lastCleaningDate: '',
+      rental_price: 0,
+      sale_price: 0,
+      is_available: true,
+      condition: 'good',
+      description: ''
     });
     setSelectedDress(null);
   };
   
   // View dress history
-  const handleViewHistory = (dress: any) => {
+  const handleViewHistory = async (dress: Dress) => {
     setSelectedDress(dress);
     setIsHistoryOpen(true);
+    
+    // You can fetch additional history data here if needed
   };
   
   // Add maintenance record
   const handleAddMaintenance = () => {
     if (!selectedDress) return;
     
-    const updatedDress = {
-      ...selectedDress,
-      status: 'maintenance',
-      location: 'المغسلة',
-      lastCleaningDate: maintenanceForm.date,
-      history: [
-        {
-          id: Date.now().toString(),
-          date: maintenanceForm.date,
-          type: 'maintenance',
-          client: '',
-          amount: 0,
-          notes: maintenanceForm.notes,
-        },
-        ...selectedDress.history,
-      ],
-    };
-    
-    setDresses(dresses.map(d => d.id === selectedDress.id ? updatedDress : d));
-    setIsMaintenanceOpen(false);
-    setMaintenanceForm({
-      date: new Date().toISOString().split('T')[0],
-      notes: '',
-      cost: 0,
+    maintenanceMutation.mutate({
+      id: selectedDress.id,
+      notes: maintenanceForm.notes
     });
   };
   
@@ -330,19 +266,34 @@ const InventoryPage = () => {
   };
   
   // Get status badge class
-  const getStatusBadgeClass = (status: string) => {
-    const statusObj = dressStatuses.find(s => s.value === status);
-    return statusObj ? statusObj.color : 'bg-gray-100 text-gray-800 border-gray-200';
+  const getStatusBadgeClass = (dress: Dress) => {
+    if (!dress.is_available && dress.condition !== 'maintenance') {
+      return 'bg-blue-100 text-blue-800 border-blue-200'; // rented
+    } else if (dress.condition === 'maintenance') {
+      return 'bg-amber-100 text-amber-800 border-amber-200'; // maintenance
+    } else if (dress.condition === 'sold') {
+      return 'bg-purple-100 text-purple-800 border-purple-200'; // sold
+    } else {
+      return 'bg-green-100 text-green-800 border-green-200'; // available
+    }
   };
   
   // Get status label
-  const getStatusLabel = (status: string) => {
-    const statusObj = dressStatuses.find(s => s.value === status);
-    return statusObj ? statusObj.label : status;
+  const getStatusLabel = (dress: Dress) => {
+    if (!dress.is_available && dress.condition !== 'maintenance' && dress.condition !== 'sold') {
+      return 'مؤجر';
+    } else if (dress.condition === 'maintenance') {
+      return 'صيانة';
+    } else if (dress.condition === 'sold') {
+      return 'مباع';
+    } else {
+      return 'متاح';
+    }
   };
   
   // Get dress type label
-  const getDressTypeLabel = (type: string) => {
+  const getDressTypeLabel = (type: string | undefined) => {
+    if (!type) return '';
     const typeObj = dressTypes.find(t => t.value === type);
     return typeObj ? typeObj.label : type;
   };
@@ -381,8 +332,8 @@ const InventoryPage = () => {
                 <div className="space-y-2">
                   <Label htmlFor="type">نوع الفستان</Label>
                   <Select 
-                    value={newDress.type} 
-                    onValueChange={(value) => setNewDress({...newDress, type: value})}
+                    value={newDress.category} 
+                    onValueChange={(value) => setNewDress({...newDress, category: value})}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="اختر النوع" />
@@ -430,22 +381,12 @@ const InventoryPage = () => {
               
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="purchasePrice">سعر الشراء</Label>
-                  <Input 
-                    id="purchasePrice" 
-                    type="number" 
-                    value={newDress.purchasePrice} 
-                    onChange={(e) => setNewDress({...newDress, purchasePrice: Number(e.target.value)})} 
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="rentalPrice">سعر التأجير</Label>
                   <Input 
                     id="rentalPrice" 
                     type="number" 
-                    value={newDress.rentalPrice} 
-                    onChange={(e) => setNewDress({...newDress, rentalPrice: Number(e.target.value)})} 
+                    value={newDress.rental_price} 
+                    onChange={(e) => setNewDress({...newDress, rental_price: Number(e.target.value)})} 
                     placeholder="0"
                   />
                 </div>
@@ -454,63 +395,56 @@ const InventoryPage = () => {
                   <Input 
                     id="salePrice" 
                     type="number" 
-                    value={newDress.salePrice} 
-                    onChange={(e) => setNewDress({...newDress, salePrice: Number(e.target.value)})} 
+                    value={newDress.sale_price || 0} 
+                    onChange={(e) => setNewDress({...newDress, sale_price: Number(e.target.value)})} 
                     placeholder="0"
                   />
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="status">الحالة</Label>
+                  <Label htmlFor="condition">الحالة</Label>
                   <Select 
-                    value={newDress.status} 
-                    onValueChange={(value) => setNewDress({...newDress, status: value})}
+                    value={newDress.condition} 
+                    onValueChange={(value) => setNewDress({...newDress, condition: value})}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="اختر الحالة" />
                     </SelectTrigger>
                     <SelectContent>
-                      {dressStatuses.map((status) => (
-                        <SelectItem key={status.value} value={status.value}>
-                          {status.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="location">الموقع</Label>
-                  <Select 
-                    value={newDress.location} 
-                    onValueChange={(value) => setNewDress({...newDress, location: value})}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر الموقع" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {dressLocations.map((location) => (
-                        <SelectItem key={location} value={location}>
-                          {location}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="good">جيدة</SelectItem>
+                      <SelectItem value="maintenance">صيانة</SelectItem>
+                      <SelectItem value="sold">مباع</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               
               <div className="space-y-2">
+                <Label htmlFor="isAvailable">متاح للتأجير</Label>
+                <Select 
+                  value={newDress.is_available ? "true" : "false"} 
+                  onValueChange={(value) => setNewDress({...newDress, is_available: value === "true"})}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true">نعم</SelectItem>
+                    <SelectItem value="false">لا</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
                 <Label htmlFor="notes">ملاحظات</Label>
                 <Input 
                   id="notes" 
-                  value={newDress.notes} 
-                  onChange={(e) => setNewDress({...newDress, notes: e.target.value})} 
+                  value={newDress.description || ''} 
+                  onChange={(e) => setNewDress({...newDress, description: e.target.value})} 
                   placeholder="أي ملاحظات إضافية"
                 />
               </div>
             </div>
-            <div className="flex justify-end space-x-4">
+            <div className="flex justify-end space-x-4 rtl:space-x-reverse">
               <Button 
                 variant="outline" 
                 onClick={() => {
@@ -523,7 +457,7 @@ const InventoryPage = () => {
               <Button 
                 className="bg-bloom-primary hover:bg-bloom-primary/90" 
                 onClick={handleAddDress}
-                disabled={!newDress.name || !newDress.type || !newDress.size}
+                disabled={!newDress.name || !newDress.rental_price}
               >
                 {selectedDress ? 'تحديث' : 'إضافة'}
               </Button>
@@ -534,7 +468,7 @@ const InventoryPage = () => {
       
       <div className="grid grid-cols-5 gap-4">
         {Object.entries(countByStatus).map(([status, count]) => (
-          <Card key={status} className="text-center" onClick={() => setActiveTab(status)} style={{ cursor: 'pointer' }}>
+          <Card key={status} className={`text-center ${activeTab === status ? 'ring-2 ring-primary' : ''}`} onClick={() => setActiveTab(status)} style={{ cursor: 'pointer' }}>
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">
                 {status === 'all' ? 'الإجمالي' : 
@@ -574,85 +508,90 @@ const InventoryPage = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>الكود</TableHead>
-                <TableHead>الاسم</TableHead>
-                <TableHead>النوع</TableHead>
-                <TableHead>المقاس</TableHead>
-                <TableHead>اللون</TableHead>
-                <TableHead>سعر التأجير</TableHead>
-                <TableHead>الحالة</TableHead>
-                <TableHead>الموقع</TableHead>
-                <TableHead>إجراءات</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredDresses.map((dress) => (
-                <TableRow key={dress.id}>
-                  <TableCell>{dress.id}</TableCell>
-                  <TableCell>{dress.name}</TableCell>
-                  <TableCell>{getDressTypeLabel(dress.type)}</TableCell>
-                  <TableCell>{dress.size}</TableCell>
-                  <TableCell>{dress.color}</TableCell>
-                  <TableCell>{dress.rentalPrice} ج.م</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={getStatusBadgeClass(dress.status)}>
-                      {getStatusLabel(dress.status)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{dress.location}</TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => handleViewHistory(dress)}
-                        title="سجل الفستان"
-                      >
-                        <History className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => {
-                          setSelectedDress(dress);
-                          setIsMaintenanceOpen(true);
-                        }}
-                        title="إرسال للصيانة"
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => handleEditDress(dress)}
-                        title="تعديل"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => handleDeleteDress(dress.id)}
-                        title="حذف"
-                      >
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filteredDresses.length === 0 && (
+          {isLoading ? (
+            <div className="flex justify-center py-10">
+              <p>جاري تحميل البيانات...</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-6">
-                    لا يوجد فساتين مطابقة لبحثك
-                  </TableCell>
+                  <TableHead>الكود</TableHead>
+                  <TableHead>الاسم</TableHead>
+                  <TableHead>النوع</TableHead>
+                  <TableHead>المقاس</TableHead>
+                  <TableHead>اللون</TableHead>
+                  <TableHead>سعر التأجير</TableHead>
+                  <TableHead>الحالة</TableHead>
+                  <TableHead>إجراءات</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredDresses.map((dress) => (
+                  <TableRow key={dress.id}>
+                    <TableCell>{dress.id.substring(0, 8)}</TableCell>
+                    <TableCell>{dress.name}</TableCell>
+                    <TableCell>{getDressTypeLabel(dress.category)}</TableCell>
+                    <TableCell>{dress.size}</TableCell>
+                    <TableCell>{dress.color}</TableCell>
+                    <TableCell>{dress.rental_price} ج.م</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={getStatusBadgeClass(dress)}>
+                        {getStatusLabel(dress)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => handleViewHistory(dress)}
+                          title="سجل الفستان"
+                        >
+                          <History className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => {
+                            setSelectedDress(dress);
+                            setIsMaintenanceOpen(true);
+                          }}
+                          title="إرسال للصيانة"
+                          disabled={dress.condition === 'maintenance'}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => handleEditDress(dress)}
+                          title="تعديل"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => handleDeleteDress(dress.id)}
+                          title="حذف"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filteredDresses.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-6">
+                      لا يوجد فساتين مطابقة لبحثك
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
       
@@ -660,63 +599,15 @@ const InventoryPage = () => {
       <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>سجل الفستان {selectedDress?.id} - {selectedDress?.name}</DialogTitle>
+            <DialogTitle>سجل الفستان {selectedDress?.id?.substring(0, 8)} - {selectedDress?.name}</DialogTitle>
             <DialogDescription>
               تاريخ الحجوزات والصيانة للفستان
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4">
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <h3 className="font-semibold">إجمالي الإيجارات</h3>
-                <p className="text-2xl">{selectedDress?.totalRentals || 0}</p>
-              </div>
-              <div>
-                <h3 className="font-semibold">إجمالي الإيرادات</h3>
-                <p className="text-2xl">{selectedDress?.totalRevenue || 0} ج.م</p>
-              </div>
+            <div className="text-center py-8">
+              <p className="text-gray-500">جاري العمل على هذه الميزة</p>
             </div>
-            
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>التاريخ</TableHead>
-                  <TableHead>النوع</TableHead>
-                  <TableHead>العميل</TableHead>
-                  <TableHead>المبلغ</TableHead>
-                  <TableHead>ملاحظات</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {selectedDress?.history.map((entry: any) => (
-                  <TableRow key={entry.id}>
-                    <TableCell>{formatDate(entry.date)}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={
-                        entry.type === 'rent' ? 'bg-blue-100 text-blue-800 border-blue-200' :
-                        entry.type === 'maintenance' ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                        entry.type === 'sale' ? 'bg-purple-100 text-purple-800 border-purple-200' :
-                        'bg-gray-100 text-gray-800 border-gray-200'
-                      }>
-                        {entry.type === 'rent' ? 'تأجير' :
-                         entry.type === 'maintenance' ? 'صيانة' :
-                         entry.type === 'sale' ? 'بيع' : entry.type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{entry.client || '-'}</TableCell>
-                    <TableCell>{entry.amount ? `${entry.amount} ج.م` : '-'}</TableCell>
-                    <TableCell>{entry.notes || '-'}</TableCell>
-                  </TableRow>
-                ))}
-                {(!selectedDress?.history || selectedDress.history.length === 0) && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-6">
-                      لا يوجد سجلات لهذا الفستان
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
           </div>
         </DialogContent>
       </Dialog>
@@ -725,7 +616,7 @@ const InventoryPage = () => {
       <Dialog open={isMaintenanceOpen} onOpenChange={setIsMaintenanceOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>إرسال للصيانة - {selectedDress?.id}</DialogTitle>
+            <DialogTitle>إرسال للصيانة - {selectedDress?.id?.substring(0, 8)}</DialogTitle>
             <DialogDescription>
               أدخل بيانات الصيانة ثم اضغط على حفظ
             </DialogDescription>
@@ -762,7 +653,7 @@ const InventoryPage = () => {
               />
             </div>
           </div>
-          <div className="flex justify-end space-x-4">
+          <div className="flex justify-end space-x-4 rtl:space-x-reverse">
             <Button variant="outline" onClick={() => setIsMaintenanceOpen(false)}>إلغاء</Button>
             <Button 
               className="bg-bloom-primary hover:bg-bloom-primary/90" 
