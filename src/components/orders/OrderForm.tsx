@@ -66,7 +66,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ selectedOrder, onSave, onCancel }
   const { data: dresses, isLoading: isLoadingDresses } = useQuery({
     queryKey: ['available-dresses'],
     queryFn: () => InventoryService.getDresses(true),
-    enabled: formData.type === 'atelier',
+    enabled: true, // Changed to always fetch dresses regardless of form state
     meta: {
       onError: () => {
         toast.error('فشل في تحميل بيانات الفساتين');
@@ -195,13 +195,16 @@ const OrderForm: React.FC<OrderFormProps> = ({ selectedOrder, onSave, onCancel }
       notes: '',
       discountCode: '',
     });
-    setAvailableSubtypes([]);
-    setAvailableSpecifics([]);
   };
 
   if (clientsError) {
     console.error('Error loading clients:', clientsError);
   }
+
+  // Debug logs
+  console.log('Form Data:', formData);
+  console.log('Available specifics:', availableSpecifics);
+  console.log('Available dresses:', dresses);
 
   return (
     <div className="grid gap-4 py-4">
@@ -285,15 +288,15 @@ const OrderForm: React.FC<OrderFormProps> = ({ selectedOrder, onSave, onCancel }
           <Select 
             value={formData.specifics} 
             onValueChange={(value) => setFormData({...formData, specifics: value})}
-            disabled={!formData.subtype || availableSpecifics.length === 0}
+            disabled={!formData.subtype}
           >
             <SelectTrigger>
               <SelectValue placeholder="اختر التفاصيل" />
             </SelectTrigger>
             <SelectContent>
-              {isLoadingDresses && formData.type === 'atelier' ? (
+              {isLoadingDresses ? (
                 <SelectItem value="loading" disabled>جاري تحميل الفساتين...</SelectItem>
-              ) : availableSpecifics.length > 0 ? (
+              ) : availableSpecifics && availableSpecifics.length > 0 ? (
                 availableSpecifics.map((specific) => (
                   <SelectItem key={specific.value} value={specific.value}>
                     {specific.label}
