@@ -23,6 +23,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { toast } from '@/components/ui/sonner';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address' }),
@@ -44,13 +45,18 @@ const Login = () => {
 
   const onSubmit = async (values: FormValues) => {
     await login(values.email, values.password);
+    // Display a toast with the user's email after successful login
+    // This will only show if login is successful, as login redirects on failure
+    toast.success(`مرحباً بك، ${values.email}`, {
+      description: 'تم تسجيل الدخول بنجاح'
+    });
   };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-bloom-light to-white">
       <div className="w-full max-w-md px-4">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-bloom-primary">Atelier Bloom</h1>
+          <h1 className="text-3xl font-bold text-bloom-primary">Heba Ouf System</h1>
           <p className="text-bloom-dark/70 mt-2">Admin Management System</p>
         </div>
         
