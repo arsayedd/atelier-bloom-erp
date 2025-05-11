@@ -8,17 +8,20 @@ import { supabase } from '@/integrations/supabase/client';
 const initializeSettings = async () => {
   try {
     // Check if company name exists
-    const { data } = await supabase
+    const { data: existingSettings } = await supabase
       .from('system_settings')
       .select('*')
       .eq('key', 'company_name')
       .single();
     
-    if (data) {
+    if (existingSettings) {
       // Update the company name to Heba Ouf
       await supabase
         .from('system_settings')
-        .update({ value: 'Heba Ouf' })
+        .update({ 
+          value: 'Heba Ouf',
+          updated_at: new Date().toISOString()
+        })
         .eq('key', 'company_name');
       
       console.log('Company name updated to Heba Ouf');

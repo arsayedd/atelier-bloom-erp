@@ -87,7 +87,7 @@ const SettingsPage = () => {
     status: 'active' as 'active' | 'inactive',
   });
   
-  // State for system settings form
+  // State for system settings form with appropriate types
   const [systemSettings, setSystemSettings] = useState<{
     company_name: string;
     company_phone: string;
@@ -167,13 +167,21 @@ const SettingsPage = () => {
       
       settings.forEach(setting => {
         if (setting.key in settingsObj) {
-          const key = setting.key as keyof typeof settingsObj;
           if (setting.type === 'boolean') {
-            settingsObj[key] = setting.value === 'true' as any;
+            // Fix: Cast to the correct key type
+            const key = setting.key as keyof typeof settingsObj;
+            // Fixed typing by using proper type assertion
+            (settingsObj[key] as unknown) = setting.value === 'true';
           } else if (setting.type === 'number') {
-            settingsObj[key] = parseFloat(setting.value) as any;
+            // Fix: Cast to the correct key type
+            const key = setting.key as keyof typeof settingsObj;
+            // Fixed typing by using proper type assertion
+            (settingsObj[key] as unknown) = parseFloat(setting.value);
           } else {
-            settingsObj[key] = setting.value as any;
+            // Fix: Cast to the correct key type
+            const key = setting.key as keyof typeof settingsObj;
+            // Fixed typing by using proper type assertion
+            (settingsObj[key] as unknown) = setting.value;
           }
         }
       });
