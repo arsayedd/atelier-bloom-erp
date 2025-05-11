@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import RevenueChart from '@/components/dashboard/RevenueChart';
@@ -8,9 +8,39 @@ import PendingPayments from '@/components/dashboard/PendingPayments';
 import DashboardCalendar from '@/components/dashboard/DashboardCalendar';
 import WelcomeMessage from '@/components/dashboard/WelcomeMessage';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { DashboardService } from '@/services/DashboardService';
 
 const Dashboard = () => {
   const { profile } = useAuth();
+  const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
+  
+  // Fetch today's appointments
+  const { 
+    data: todayAppointments, 
+    isLoading: isLoadingAppointments 
+  } = useQuery({
+    queryKey: ['todayAppointments'],
+    queryFn: DashboardService.getTodayAppointments
+  });
+  
+  // Fetch pending payments
+  const { 
+    data: pendingPayments, 
+    isLoading: isLoadingPayments 
+  } = useQuery({
+    queryKey: ['pendingPayments'],
+    queryFn: DashboardService.getPendingPayments
+  });
+  
+  // Fetch monthly revenue data
+  const { 
+    data: revenueData, 
+    isLoading: isLoadingRevenue 
+  } = useQuery({
+    queryKey: ['monthlyRevenue'],
+    queryFn: DashboardService.getMonthlyRevenue
+  });
   
   return (
     <div className="space-y-6">
@@ -68,7 +98,10 @@ const Dashboard = () => {
                 <CardDescription>مواعيد اليوم المحجوزة</CardDescription>
               </CardHeader>
               <CardContent>
-                <TodayAppointments />
+                <TodayAppointments 
+                  appointments={todayAppointments} 
+                  isLoading={isLoadingAppointments} 
+                />
               </CardContent>
             </Card>
             <Card className="md:col-span-1">
@@ -77,7 +110,10 @@ const Dashboard = () => {
                 <CardDescription>قائمة الدفعات المستحقة</CardDescription>
               </CardHeader>
               <CardContent>
-                <PendingPayments />
+                <PendingPayments 
+                  payments={pendingPayments} 
+                  isLoading={isLoadingPayments} 
+                />
               </CardContent>
             </Card>
           </div>
@@ -89,7 +125,10 @@ const Dashboard = () => {
               <CardDescription>تحليل الإيرادات على مدار العام الحالي</CardDescription>
             </CardHeader>
             <CardContent className="h-[300px]">
-              <RevenueChart />
+              <RevenueChart 
+                data={revenueData} 
+                isLoading={isLoadingRevenue} 
+              />
             </CardContent>
           </Card>
           
@@ -99,7 +138,10 @@ const Dashboard = () => {
               <CardDescription>عرض المواعيد والأحداث</CardDescription>
             </CardHeader>
             <CardContent>
-              <DashboardCalendar />
+              <DashboardCalendar 
+                date={calendarDate}
+                setDate={setCalendarDate}
+              />
             </CardContent>
           </Card>
         </TabsContent>
